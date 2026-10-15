@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ t.ticket_no }}{% endblock %}
+{% block body %}
+<div class="pagehead noprint"><div><h1>Receipt</h1></div>
+<div class="actions"><button class="btn btn-primary" onclick="window.print()">Print</button>
+<a class="btn btn-ghost" href="{{ url_for('main.ticket_detail', tid=t.id) }}">Back to ticket</a></div></div>
+
+<div class="receipt">
+  <div style="text-align:center;margin-bottom:16px">
+    <div style="font-family:var(--font-display);font-size:26px;font-weight:700">JTG ENTERPRISES LIMITED</div>
+    <div style="font-size:12px;color:#555">Kilimambogo, Thika · Weighbridge {{ '01 (Quarry)' if t.site=='quarry' else '02 (Yard)' }}</div>
+    <div style="font-size:12px;color:#555">{{ 'SALES RECEIPT' if t.type=='sale' else 'TRANSFER NOTE' }} · <b>{{ t.ticket_no }}</b></div>
+  </div>
+  <table style="width:100%;font-size:14px;border-collapse:collapse">
+    <tr><td style="padding:5px 0;color:#555">Date</td><td style="text-align:right" class="num">{{ t.created_at|dt }} EAT</td></tr>
+    <tr><td style="padding:5px 0;color:#555">Vehicle</td><td style="text-align:right"><b class="num">{{ t.plate }}</b></td></tr>
+    <tr><td style="padding:5px 0;color:#555">Driver</td><td style="text-align:right">{{ t.driver_name or '—' }}</td></tr>
+    <tr><td style="padding:5px 0;color:#555">Material</td><td style="text-align:right">{{ t.material.name if t.material else '—' }}</td></tr>
+    <tr><td style="padding:5px 0;border-top:1px dashed #ccc;color:#555">Tare</td><td style="text-align:right;border-top:1px dashed #ccc" class="num">{{ t.tare_kg|kgfmt }} kg</td></tr>
+    <tr><td style="padding:5px 0;color:#555">Gross</td><td style="text-align:right" class="num">{{ t.gross_kg|kgfmt }} kg</td></tr>
+    <tr><td style="padding:5px 0;border-top:1px dashed #ccc"><b>Net</b></td><td style="text-align:right;border-top:1px dashed #ccc" class="num"><b>{{ t.net_tonnes }} tonnes</b></td></tr>
+    {% if t.type == 'sale' %}
+    <tr><td style="padding:5px 0;color:#555">Rate</td><td style="text-align:right" class="num">KES {{ t.material.price_per_tonne|kes }}/t</td></tr>
+    <tr><td style="padding:8px 0;border-top:2px solid #111"><b>AMOUNT</b></td><td style="text-align:right;border-top:2px solid #111" class="num"><b>KES {{ t.amount_due|kes }}</b></td></tr>
+    <tr><td style="padding:5px 0;color:#555">Payment</td><td style="text-align:right">{{ (t.payment_method or '')|upper }}{% if t.mpesa_code %} · {{ t.mpesa_code }}{% endif %}</td></tr>
+    {% endif %}
+  </table>
+  <div style="margin-top:16px;font-size:12px;color:#555;text-align:center">
+    Served by {{ t.created_by }}<br>Thank you for your business.
+  </div>
+</div>
+{% endblock %}

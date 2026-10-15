@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Mizani{% endblock %} · JTG Weighbridge</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/fonts-local.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mizani.css') }}">
+<script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
+</head>
+<body>
+<header class="topbar">
+  <a href="{{ url_for('main.index') }}" style="text-decoration:none" class="brand">
+    <span class="mark">M</span> MIZANI
+  </a>
+  {% if current_user.is_authenticated %}
+  <span class="site-pill">
+    {% if current_user.role == 'manager' %}Both sites
+    {% elif current_user.role == 'hr' %}HR
+    {% elif current_user.site == 'quarry' %}Quarry operations
+    {% else %}Yard operations{% endif %}
+  </span>
+  <nav class="nav">
+    {% if current_user.role in ('manager','operator_quarry') %}
+      <a href="{{ url_for('main.queue') }}" class="{{ 'active' if request.endpoint in ('main.queue','main.ticket_new','main.ticket_detail') else '' }}">Lorry Queue</a>
+    {% endif %}
+    {% if current_user.role in ('manager','operator_yard') %}
+      <a href="{{ url_for('main.yard') }}" class="{{ 'active' if request.endpoint=='main.yard' else '' }}">Yard Receiving</a>
+    {% endif %}
+    {% if current_user.role in ('manager','operator_quarry','operator_yard') %}
+      <a href="{{ url_for('main.history') }}" class="{{ 'active' if request.endpoint=='main.history' else '' }}">History</a>
+    {% endif %}
+    {% if current_user.role == 'manager' %}
+      <a href="{{ url_for('main.manager') }}" class="{{ 'active' if request.endpoint=='main.manager' else '' }}">Manager Overview</a>
+      <a href="{{ url_for('main.reports') }}" class="{{ 'active' if request.endpoint=='main.reports' else '' }}">Reports</a>
+      <a href="{{ url_for('main.materials') }}" class="{{ 'active' if request.endpoint=='main.materials' else '' }}">Materials</a>
+      <a href="{{ url_for('main.users') }}" class="{{ 'active' if request.endpoint=='main.users' else '' }}">Users</a>
+    {% endif %}
+    {% if current_user.role in ('hr','manager') %}
+      <a href="{{ url_for('main.hr') }}" class="{{ 'active' if request.endpoint=='main.hr' else '' }}">HR</a>
+    {% endif %}
+  </nav>
+  <span class="syncdot"><i></i> Live</span>
+  <div class="userbox">
+    <div><div style="font-weight:700">{{ current_user.name }}</div>
+    <div class="role">{{ current_user.role_label }}</div></div>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
+    <a class="icon-btn" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none" href="{{ url_for('main.logout') }}" title="Sign out">⏻</a>
+  </div>
+  {% endif %}
+</header>
+
+<main class="wrap">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}
+      <div class="flash {{ 'ok' if cat=='ok' else 'err' }}">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+
+<script>
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem('mizani-theme') || 'light';
+document.getElementById('themeBtn')?.addEventListener('click', () => {
+  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('mizani-theme', root.dataset.theme);
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

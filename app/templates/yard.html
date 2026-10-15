@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Yard receiving{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>Yard receiving</h1>
+  <div class="sub">Incoming transfers from the quarry · yard sales queue below</div></div>
+  <div class="actions"><a class="btn btn-primary" href="{{ url_for('main.ticket_new') }}">+ New yard ticket</a></div>
+</div>
+
+<h2 style="font-size:22px;margin-bottom:10px">Incoming transfers</h2>
+<div class="grid g3" style="margin-bottom:24px">
+  {% for t in incoming %}
+  <a class="lorry" href="{{ url_for('main.ticket_detail', tid=t.id) }}">
+    <div class="lrow"><span class="plate num">{{ t.plate }}</span><span class="badge b-slate">In transit</span></div>
+    <div class="meta"><b>{{ t.driver_name }}</b> · {{ t.material.name if t.material else '' }}</div>
+    <div class="wgrid">
+      <div class="wcell"><div class="k">Dispatched net</div><div class="v num">{{ t.net_tonnes }} <span style="font-size:11px">T</span></div></div>
+      <div class="wcell"><div class="k">Since</div><div class="v num">{{ t.gross_at|tm }}</div></div>
+    </div>
+    <button class="openbtn" type="button">Receive lorry →</button>
+  </a>
+  {% else %}
+  <div class="card card-p muted">No transfers in transit right now.</div>
+  {% endfor %}
+</div>
+
+{% if receiving %}
+<h2 style="font-size:22px;margin-bottom:10px">Being received</h2>
+<div class="grid g3" style="margin-bottom:24px">
+  {% for t in receiving %}
+  <a class="lorry alert" href="{{ url_for('main.ticket_detail', tid=t.id) }}">
+    <div class="lrow"><span class="plate num">{{ t.plate }}</span><span class="badge b-amber">Offloading</span></div>
+    <div class="meta">Arrival gross <b class="num">{{ t.arrival_gross_kg|kgfmt }} kg</b> — capture tare to finish</div>
+    <button class="openbtn" type="button">Complete receiving →</button>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2 style="font-size:22px;margin-bottom:10px">Yard lorry queue</h2>
+<div class="qcols">
+  {% for status, title, sub, tickets in cols %}
+  <section class="qcol">
+    <h2>{{ title }} <span class="count">{{ tickets|length }}</span></h2>
+    {% for t in tickets %}
+    <a class="lorry" href="{{ url_for('main.ticket_detail', tid=t.id) }}">
+      <div class="lrow"><span class="plate num">{{ t.plate }}</span>
+        {% if t.type=='transfer' %}<span class="badge b-slate">Transfer</span>{% else %}<span class="badge b-amber">Sale</span>{% endif %}</div>
+      <div class="meta"><b>{{ t.driver_name }}</b> · {{ t.material.name if t.material else '' }}</div>
+      <button class="openbtn" type="button">Open ticket →</button>
+    </a>
+    {% else %}
+    <div class="muted small" style="padding:12px">No lorries at this stage.</div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+mizani.db
+*.db
+stitch-export/
+.env

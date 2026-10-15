@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}HR terminal{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>HR terminal</h1><div class="sub">People, activity &amp; shifts — no money figures here</div></div></div>
+
+<div class="toolbar">
+  <a class="btn {{ 'btn-primary' if tab=='staff' else 'btn-ghost' }} btn-sm" href="{{ url_for('main.hr', tab='staff') }}">Staff</a>
+  <a class="btn {{ 'btn-primary' if tab=='activity' else 'btn-ghost' }} btn-sm" href="{{ url_for('main.hr', tab='activity') }}">Activity log</a>
+  <a class="btn {{ 'btn-primary' if tab=='shifts' else 'btn-ghost' }} btn-sm" href="{{ url_for('main.hr', tab='shifts') }}">Shift summary</a>
+</div>
+
+{% if tab == 'staff' %}
+<div class="card card-p" style="overflow-x:auto">
+<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Site</th><th>Status</th><th>Since</th></tr></thead>
+<tbody>{% for u in staff %}
+<tr><td><b>{{ u.name }}</b><div class="muted small num">{{ u.username }}</div></td>
+<td>{{ u.role_label }}</td><td>{{ u.site or 'all' }}</td>
+<td>{% if u.active %}<span class="badge b-green">Active</span>{% else %}<span class="badge b-red">Inactive</span>{% endif %}</td>
+<td class="small muted">{{ u.created_at|dt }}</td></tr>
+{% endfor %}</tbody></table>
+<div class="hint" style="margin-top:10px">Account changes (create / deactivate) are done by the manager under Users.</div>
+</div>
+{% elif tab == 'activity' %}
+<div class="card card-p">
+  <form method="get" class="rowflex" style="margin-bottom:12px">
+    <input type="hidden" name="tab" value="activity">
+    <input class="input" name="who" placeholder="Filter by person…" value="{{ who }}" style="max-width:280px">
+    <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+  </form>
+  <div style="overflow-x:auto"><table class="tbl">
+  <thead><tr><th>Time</th><th>Person</th><th>Action</th><th>Ticket</th><th>Detail</th></tr></thead>
+  <tbody>{% for a in activity %}
+  <tr><td class="num small">{{ a.at|dt }}</td><td><b>{{ a.actor }}</b><div class="muted small">{{ a.role }}</div></td>
+  <td><span class="badge b-plain">{{ a.action.replace('_',' ') }}</span></td>
+  <td class="num">{{ a.ticket_no or '—' }}</td><td class="small">{{ a.detail or '' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">No activity recorded.</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% else %}
+<div class="card card-p" style="overflow-x:auto">
+<table class="tbl"><thead><tr><th>Operator</th><th>Role</th><th class="r">Tickets today</th><th class="r">Tonnes weighed</th><th>First activity</th><th>Last activity</th></tr></thead>
+<tbody>{% for name, role, cnt, kg, first, last in shifts %}
+<tr><td><b>{{ name }}</b></td><td>{{ role }}</td><td class="r num">{{ cnt }}</td>
+<td class="r num">{{ (kg/1000)|round(2) }}</td><td class="num small">{{ first|tm }}</td><td class="num small">{{ last|tm }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No operator activity today yet.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+{% endif %}
+{% endblock %}

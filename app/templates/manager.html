@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Manager overview{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>Operations overview</h1><div class="sub">Today · {{ site or 'both sites' }}</div></div>
+  <div class="actions rowflex">
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('main.manager') }}">Both sites</a>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('main.manager', site='quarry') }}">Quarry</a>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('main.manager', site='yard') }}">Yard</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="k">Tonnes dispatched</div><div class="v num">{{ k.dispatched|round(1) }} <small>t</small></div></div>
+  <div class="kpi"><div class="k">Tonnes sold</div><div class="v num">{{ k.sold|round(1) }} <small>t</small></div></div>
+  <div class="kpi"><div class="k">Revenue collected</div><div class="v num">{{ k.revenue|round(0)|int }} <small>KES</small></div></div>
+  <div class="kpi {{ 'neg' if k.pending > 0 else '' }}"><div class="k">Payments pending</div><div class="v num">{{ k.pending|round(0)|int }} <small>KES</small></div></div>
+  <div class="kpi {{ 'neg' if k.tvar < 0 else '' }}"><div class="k">Transit variance</div><div class="v num">{{ '%+.1f'|format(k.tvar) }} <small>t</small></div></div>
+  <div class="kpi"><div class="k">Reports</div><div style="margin-top:8px"><a class="btn btn-ghost btn-sm" href="{{ url_for('main.reports') }}">Open →</a></div></div>
+</div>
+
+<div class="grid g2">
+  <div class="card card-p">
+    <h2 style="font-size:22px;margin-bottom:10px">Alerts</h2>
+    <div class="alert-feed">
+    {% for a in alerts %}
+      <div class="item">
+        {% if a.action=='force_complete' %}<span class="badge b-amber">Override</span>
+        {% elif a.action=='ticket_voided' %}<span class="badge b-red">Void</span>
+        {% elif a.action=='stk_failed' %}<span class="badge b-red">M-Pesa</span>
+        {% else %}<span class="badge b-slate">Transit</span>{% endif %}
+        <div><b>{{ a.ticket_no or '—' }}</b> · {{ a.detail }}<div class="muted small">{{ a.actor }} · {{ a.at|dt }}</div></div>
+      </div>
+    {% else %}
+      <div class="muted">No alerts. Quiet day.</div>
+    {% endfor %}
+    </div>
+  </div>
+  <div class="card card-p">
+    <div class="rowflex" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="font-size:22px">Latest activity</h2>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('main.history') }}">Full history →</a>
+    </div>
+    <div class="alert-feed">
+    {% for t in activity %}
+      <div class="item">
+        <span class="plate num" style="font-size:12px;padding:4px 8px">{{ t.plate }}</span>
+        <div><b class="num">{{ t.ticket_no }}</b> · {{ t.type }} · {{ t.material.name if t.material else '' }} · <b class="num">{{ t.net_tonnes }} t</b>
+        <div class="muted small">{{ t.site }} · {{ t.created_by }} · {{ t.created_at|dt }}</div></div>
+      </div>
+    {% else %}
+      <div class="muted">No activity yet.</div>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

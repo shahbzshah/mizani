@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>Ticket history</h1><div class="sub">Cleared and voided tickets</div></div></div>
+<div class="toolbar">
+  <form method="get" class="rowflex" style="flex:1">
+    <input class="input" name="f" placeholder="Filter plate, ticket, driver…" value="{{ f }}" style="max-width:340px">
+    <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+  </form>
+</div>
+<div class="card card-p" style="overflow-x:auto">
+<table class="tbl">
+  <thead><tr><th>Ticket</th><th>Date</th><th>Site</th><th>Type</th><th>Plate</th><th>Material</th>
+  <th class="r">Net (t)</th><th class="r">Amount (KES)</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for t in tickets %}
+    <tr>
+      <td class="num">{{ t.ticket_no }}</td><td class="num small">{{ t.created_at|dt }}</td>
+      <td>{{ t.site }}</td>
+      <td>{% if t.type=='transfer' %}<span class="badge b-slate">Transfer</span>{% else %}<span class="badge b-amber">Sale</span>{% endif %}</td>
+      <td><span class="plate num" style="font-size:12px;padding:4px 8px">{{ t.plate }}</span></td>
+      <td>{{ t.material.name if t.material else '—' }}</td>
+      <td class="r num">{{ t.net_tonnes }}</td><td class="r num">{{ t.amount_due|kes }}</td>
+      <td>{% if t.payment_status=='paid' %}<span class="badge b-green">Paid</span>{% else %}<span class="badge b-plain">{{ t.payment_status }}</span>{% endif %}</td>
+      <td>{% if t.status=='voided' %}<span class="badge b-red">Voided</span>{% else %}<span class="badge b-green">Cleared</span>{% endif %}</td>
+      <td><a href="{{ url_for('main.ticket_detail', tid=t.id) }}">Open →</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="11" class="muted">No tickets found.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>Reports</h1><div class="sub">Sales, transfers &amp; transit variance</div></div>
+  <div class="actions"><a class="btn btn-primary btn-sm" href="{{ url_for('main.reports_export') }}">Export Excel ↓</a></div>
+</div>
+
+<div class="card card-p" style="margin-bottom:16px">
+  <form method="get" class="rowflex">
+    <div class="field" style="margin:0"><label>From</label><input class="input" type="date" name="dfrom" value="{{ dfrom }}"></div>
+    <div class="field" style="margin:0"><label>To</label><input class="input" type="date" name="dto" value="{{ dto }}"></div>
+    <div class="field" style="margin:0"><label>Site</label><select class="input" name="site">
+      <option value="">Both</option><option value="quarry" {{ 'selected' if site=='quarry' }}>Quarry</option>
+      <option value="yard" {{ 'selected' if site=='yard' }}>Yard</option></select></div>
+    <div class="field" style="margin:0"><label>Material</label><select class="input" name="material">
+      <option value="">All</option>{% for m in materials %}<option value="{{ m.id }}" {{ 'selected' if mat==m.id|string }}>{{ m.name }}</option>{% endfor %}</select></div>
+    <button class="btn btn-ghost" type="submit" style="margin-top:22px">Apply</button>
+  </form>
+</div>
+
+<h2 style="font-size:22px;margin-bottom:10px">Sales by material</h2>
+<div class="card card-p" style="margin-bottom:20px;overflow-x:auto">
+<table class="tbl"><thead><tr><th>Material</th><th class="r">Tickets</th><th class="r">Tonnes</th><th class="r">Revenue (KES)</th></tr></thead>
+<tbody>{% for name, cnt, kg, rev in bymat %}
+<tr><td><b>{{ name }}</b></td><td class="r num">{{ cnt }}</td><td class="r num">{{ (kg/1000)|round(2) }}</td><td class="r num">{{ rev|kes }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">No sales in range.</td></tr>{% endfor %}</tbody></table>
+</div>
+
+<h2 style="font-size:22px;margin-bottom:10px">Transit variance — dispatched vs received</h2>
+<div class="card card-p" style="margin-bottom:20px;overflow-x:auto">
+<table class="tbl"><thead><tr><th>Ticket</th><th>Plate</th><th class="r">Dispatched (t)</th><th class="r">Delivered (t)</th><th class="r">Variance (kg)</th><th>Flag</th></tr></thead>
+<tbody>{% for t in transfers %}
+<tr><td class="num">{{ t.ticket_no }}</td><td><span class="plate num" style="font-size:12px;padding:4px 8px">{{ t.plate }}</span></td>
+<td class="r num">{{ t.net_tonnes }}</td><td class="r num">{{ (t.delivered_net_kg/1000)|round(2) if t.delivered_net_kg }}</td>
+<td class="r num">{{ '%+.0f'|format(t.transit_variance_kg or 0) }}</td>
+<td>{% if (t.transit_variance_kg or 0)|abs <= (t.net_kg or 0)*0.005 %}<span class="badge b-green">OK</span>{% else %}<span class="badge b-red">Shortfall</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No completed transfers.</td></tr>{% endfor %}</tbody></table>
+</div>
+
+<h2 style="font-size:22px;margin-bottom:10px">Tickets ({{ tickets|length }})</h2>
+<div class="card card-p" style="overflow-x:auto">
+<table class="tbl"><thead><tr><th>Ticket</th><th>Date</th><th>Site</th><th>Type</th><th>Plate</th><th>Material</th><th class="r">Net (t)</th><th class="r">KES</th><th>Pay</th></tr></thead>
+<tbody>{% for t in tickets %}
+<tr><td class="num">{{ t.ticket_no }}</td><td class="num small">{{ t.created_at|dt }}</td><td>{{ t.site }}</td><td>{{ t.type }}</td>
+<td class="num">{{ t.plate }}</td><td>{{ t.material.name if t.material else '—' }}</td>
+<td class="r num">{{ t.net_tonnes }}</td><td class="r num">{{ t.amount_due|kes }}</td>
+<td>{% if t.payment_status=='paid' %}<span class="badge b-green">Paid</span>{% else %}<span class="badge b-plain">{{ t.payment_status }}</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">Nothing in range.</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

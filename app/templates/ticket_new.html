@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}New ticket{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>New weighbridge ticket</h1>
+  <div class="sub">{{ 'Quarry' if site=='quarry' else 'Yard' }} · tare first, then the lorry goes to load</div></div>
+</div>
+
+<form method="post" class="card card-p" style="max-width:760px">
+  <div class="g2 grid">
+    <div class="field"><label>Number plate</label>
+      <input class="input num" name="plate" id="plate" placeholder="KDA 782P" required autocomplete="off"
+             style="text-transform:uppercase;font-weight:700;font-size:18px">
+      <div class="hint" id="lorryHint">Known lorries auto-fill driver &amp; tare.</div></div>
+    <div class="field"><label>Ticket type</label>
+      <div class="seg" id="typeSeg">
+        <button type="button" class="on" data-v="sale">Direct sale</button>
+        <button type="button" data-v="transfer">Transfer to yard</button>
+      </div>
+      <input type="hidden" name="type" id="typeInput" value="sale"></div>
+  </div>
+  <div class="g2 grid">
+    <div class="field"><label>Driver name</label><input class="input" name="driver_name" id="driver"></div>
+    <div class="field"><label>Driver phone</label><input class="input num" name="driver_phone" id="dphone" placeholder="0722 000000"></div>
+  </div>
+  <div class="field"><label>Transporter / customer</label><input class="input" name="transporter" id="transporter"></div>
+  <div class="g2 grid">
+    <div class="field"><label>Material</label>
+      <select class="input" name="material_id" required>
+        {% for m in materials %}
+        <option value="{{ m.id }}">{{ m.name }} — KES {{ m.price_per_tonne|kes }}/t</option>
+        {% endfor %}
+      </select></div>
+    <div class="field"><label>Target tonnage</label>
+      <input class="input num" name="target_tonnes" type="number" step="0.5" min="1" value="20" required></div>
+  </div>
+  <div class="divider"></div>
+  <div class="g3 grid">
+    <div class="field"><label>Tare weight (kg) — empty lorry</label>
+      <input class="input num" name="tare_kg" id="tare" type="number" step="10" min="1000" required
+             style="font-size:22px;font-weight:700"></div>
+    <div class="field"><label>Read by (office)</label><input class="input" name="tare_read_by_display" value="{{ current_user.name }}" disabled></div>
+    <div class="field"><label>Confirmed by (window guy)</label><input class="input" name="tare_confirmed_by" placeholder="Second reader"></div>
+  </div>
+  <div class="field"><label>Notes (optional)</label><textarea class="input" name="notes" rows="2"></textarea></div>
+  <div class="rowflex">
+    <button class="btn btn-primary" type="submit">Start ticket → send to loading</button>
+    <a class="btn btn-ghost" href="{{ url_for('main.queue') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+const seg = document.getElementById('typeSeg');
+seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById('typeInput').value = b.dataset.v;
+});
+const plate = document.getElementById('plate');
+let t;
+plate.addEventListener('input', () => {
+  clearTimeout(t);
+  t = setTimeout(async () => {
+    const p = plate.value.trim().toUpperCase();
+    if (p.length < 4) return;
+    const r = await fetch('/api/lorry/' + encodeURIComponent(p));
+    const d = await r.json();
+    if (d) {
+      document.getElementById('driver').value = d.driver_name || '';
+      document.getElementById('dphone').value = d.driver_phone || '';
+      document.getElementById('transporter').value = d.transporter || '';
+      document.getElementById('tare').value = Math.round(d.usual_tare_kg || '');
+      document.getElementById('lorryHint').innerHTML =
+        `Known lorry · usual tare <b class="num">${Math.round(d.usual_tare_kg).toLocaleString()} kg</b> · ${d.visits} visits`;
+    }
+  }, 350);
+});
+</script>
+{% endblock %}

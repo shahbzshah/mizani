@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Users & permissions{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>Users &amp; permissions</h1><div class="sub">Who can do what — manager sets it here</div></div></div>
+
+<div class="card card-p" style="margin-bottom:16px">
+  <h2 style="font-size:20px;margin-bottom:10px">Permission matrix</h2>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Capability</th><th>Manager</th><th>HR</th><th>Quarry operator</th><th>Yard operator</th></tr></thead>
+    <tbody>
+      <tr><td>Own-site tickets &amp; weighing</td><td>✓</td><td>—</td><td>✓ quarry</td><td>✓ yard</td></tr>
+      <tr><td>Both-site dashboards &amp; reports</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Money figures &amp; pricing</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Void / force-complete (logged)</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Staff accounts &amp; activity log</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+    </tbody></table></div>
+</div>
+
+<div class="grid g2">
+  <div class="card card-p" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>User</th><th>Role</th><th>Site</th><th>Status</th><th></th></tr></thead>
+    <tbody>{% for u in users %}
+      <tr><td><b>{{ u.name }}</b><div class="muted small num">{{ u.username }}</div></td>
+      <td>{{ u.role_label }}</td><td>{{ u.site or 'all' }}</td>
+      <td>{% if u.active %}<span class="badge b-green">Active</span>{% else %}<span class="badge b-red">Inactive</span>{% endif %}</td>
+      <td>{% if u.id != current_user.id %}
+        <form method="post" action="{{ url_for('main.user_toggle', uid=u.id) }}">
+          <button class="btn btn-ghost btn-sm" type="submit">{{ 'Deactivate' if u.active else 'Activate' }}</button>
+        </form>{% endif %}</td></tr>
+    {% endfor %}</tbody></table>
+  </div>
+  <div>
+    <form class="card card-p" method="post">
+      <h2 style="font-size:22px;margin-bottom:12px">Add user</h2>
+      <div class="field"><label>Full name</label><input class="input" name="name" required></div>
+      <div class="field"><label>Username</label><input class="input" name="username" required></div>
+      <div class="field"><label>Password</label><input class="input" name="password" value="mizani123" required></div>
+      <div class="g2 grid">
+        <div class="field"><label>Role</label><select class="input" name="role">
+          {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Site</label><select class="input" name="site">
+          <option value="">All</option><option value="quarry">Quarry</option><option value="yard">Yard</option></select></div>
+      </div>
+      <button class="btn btn-primary" type="submit">Create user</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

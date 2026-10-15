@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}{{ t.ticket_no }}{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div>
+    <div class="muted small" style="letter-spacing:.08em;font-weight:700">{{ 'DISPATCH TICKET' if t.type=='sale' else 'TRANSFER TICKET' }}</div>
+    <h1 class="num">{{ t.ticket_no }}</h1>
+  </div>
+  <div class="actions rowflex">
+    <span class="plate num">{{ t.plate }}</span>
+    {% if t.type=='transfer' %}<span class="badge b-slate">Transfer to yard</span>
+    {% else %}<span class="badge b-amber">Direct sale</span>{% endif %}
+    <span class="badge b-plain">{{ t.site }}</span>
+    {% if t.status=='voided' %}<span class="badge b-red">Voided</span>
+    {% elif t.status=='done' %}<span class="badge b-green">Cleared</span>
+    {% elif t.status in ('in_transit','receiving') %}<span class="badge b-slate">{{ t.status.replace('_',' ') }}</span>
+    {% else %}<span class="badge b-amber">{{ t.status.replace('_',' ') }}</span>{% endif %}
+  </div>
+</div>
+
+{# stepper #}
+<div class="stepper">
+  {% if t.type == 'sale' %}
+    {% set steps = [('tare_captured','1. Tare captured', t.tare_kg),('loading','2. Pit loading',''),('gross_due','3. Gross weighing',''),('payment_due','4. Payment',''),('done','5. Cleared','')] %}
+  {% else %}
+    {% set steps = [('tare_captured','1. Tare captured', t.tare_kg),('loading','2. Pit loading',''),('gross_due','3. Gross weighing',''),('in_transit','4. In transit',''),('receiving','5. Yard receiving',''),('done','6. Received','')] %}
+  {% endif %}
+  {% set order = ['tare_captured','loading','gross_due','payment_due','in_transit','receiving','done'] %}
+  {% for s, label, _ in steps %}
+    {% set idx = order.index(s) if s in order else 99 %}
+    {% set cur = order.index(t.status) if t.status in order else 99 %}
+    <div class="step {{ 'done' if (idx < cur or t.status=='done') and t.status != 'voided' else '' }} {{ 'now' if idx == cur and t.status not in ('done','voided') else '' }}">
+      <div class="n">{{ label.split('. ')[0] }}</div><div class="s">{{ label.split('. ',1)[1] }}</div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="grid g3">
+  <div class="wread"><div class="k">1. Tare weight (empty)</div>
+    <div class="v num">{{ t.tare_kg|kgfmt }} <span class="u">KG</span></div>
+    <div class="muted small" style="margin-top:6px">Read by {{ t.tare_read_by or '—' }}{% if t.tare_confirmed_by %} · confirmed by {{ t.tare_confirmed_by }}{% endif %}<br>{{ t.tare_at|tm }} EAT</div></div>
+  <div class="wread"><div class="k">2. Gross weight (loaded)</div>
+    {% if t.gross_kg %}<div class="v num">{{ t.gross_kg|kgfmt }} <span class="u">KG</span></div>
+    <div class="muted small" style="margin-top:6px">Read by {{ t.gross_read_by or '—' }}{% if t.gross_confirmed_by %} · confirmed by {{ t.gross_confirmed_by }}{% endif %}<br>{{ t.gross_at|tm }} EAT</div>
+    {% else %}<div class="v muted">—</div><div class="muted small" style="margin-top:6px">Awaiting return from loader</div>{% endif %}</div>
+  <div class="wread hero"><div class="k">3. Net commercial payload</div>
+    <div class="v num">{{ t.net_tonnes }} <span class="u">TONNES</span></div>
+    <div class="muted small" style="margin-top:6px;color:#D8CFBE">{{ t.net_kg|kgfmt if t.net_kg else '—' }} kg net aggregate weight</div></div>
+</div>
+
+{% if t.net_kg and t.target_tonnes %}
+<div class="varbanner {{ 'ok' if t.variance_ok else 'bad' }}">
+  {% if t.variance_ok %}✓ ON TARGET ({{ '%+.0f'|format(t.variance_kg) }} kg / {{ '%+.1f'|format(t.variance_kg / (t.target_tonnes*10)) }}% vs {{ t.target_tonnes }} t target)
+  {% elif t.variance_kg < 0 %}⚠ UNDER TARGET by {{ '%0.0f'|format(-t.variance_kg) }} kg vs {{ t.target_tonnes }} t — send back to loader, re-weigh, or get a manager override
+  {% else %}⚠ OVER TARGET by {{ '%0.0f'|format(t.variance_kg) }} kg vs {{ t.target_tonnes }} t — check axle limits, trim load, or get a manager override{% endif %}
+  <span style="margin-left:auto" class="badge {{ 'b-green' if t.variance_ok else 'b-red' }}">Tolerance &lt; 1.0%</span>
+</div>
+{% endif %}
+
+{# gross capture #}
+{% if t.status in ('tare_captured','loading','gross_due') and current_user.role in ('manager','operator_quarry','operator_yard') %}
+<div class="card card-p" style="margin-top:16px">
+  <h2 style="font-size:22px;margin-bottom:12px">Capture gross weight</h2>
+  <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" class="rowflex">
+    <div class="field" style="margin:0;flex:1;min-width:200px"><label>Gross (kg) — loaded lorry</label>
+      <input class="input num" name="gross_kg" type="number" step="10" min="1000" required style="font-size:22px;font-weight:700"></div>
+    <div class="field" style="margin:0;flex:1;min-width:200px"><label>Confirmed by (window guy)</label>
+      <input class="input" name="gross_confirmed_by" placeholder="Second reader"></div>
+    <button class="btn btn-accent" type="submit" style="margin-top:22px">Lock gross →</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="grid g2" style="margin-top:16px">
+  <div>
+    {# material & amount #}
+    <div class="card card-p">
+      <h2 style="font-size:22px;margin-bottom:12px">Material &amp; rate</h2>
+      <div class="rowflex" style="justify-content:space-between">
+        <div><b>{{ t.material.name if t.material else '—' }}</b><div class="muted small">{{ t.material.spec if t.material else '' }}</div></div>
+        <div class="num" style="text-align:right"><b>KES {{ t.material.price_per_tonne|kes }}</b><div class="muted small">per tonne</div></div>
+      </div>
+      {% if t.type == 'sale' and t.net_kg %}
+      <div class="divider"></div>
+      <div class="rowflex" style="justify-content:space-between">
+        <span class="muted">{{ t.net_tonnes }} T × KES {{ t.material.price_per_tonne|kes }}</span>
+        <span class="num" style="font-size:30px;font-weight:700">KES {{ t.amount_due|kes }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {# payment #}
+    {% if t.type == 'sale' and t.status in ('payment_due','done') %}
+    <div class="card card-p" style="margin-top:16px">
+      <div class="rowflex" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="font-size:22px">Settlement</h2>
+        {% if t.payment_status=='paid' %}<span class="badge b-green">Paid{% if t.mpesa_code %} · {{ t.mpesa_code }}{% endif %}</span>
+        {% elif t.payment_status=='stk_pending' %}<span class="badge b-amber">STK pending</span>
+        {% elif t.payment_status=='failed' %}<span class="badge b-red">STK failed</span>
+        {% else %}<span class="badge b-amber">Unpaid</span>{% endif %}
+      </div>
+      {% if t.payment_status != 'paid' and t.status != 'done' %}
+      <div class="paytabs" id="paytabs">
+        <button type="button" class="on" data-tab="mpesa">M-Pesa STK push</button>
+        <button type="button" data-tab="cash">Cash</button>
+      </div>
+      <div id="tab-mpesa">
+        <form method="post" action="{{ url_for('main.pay_mpesa', tid=t.id) }}">
+          <div class="field"><label>Customer M-Pesa number</label>
+            <input class="input num" name="mpesa_phone" value="{{ t.driver_phone or '' }}" placeholder="0722 000000" required></div>
+          <button class="btn btn-accent btn-block" type="submit">Send M-Pesa STK push (KES {{ t.amount_due|kes }})</button>
+        </form>
+        {% if daraja_demo %}<div class="hint" style="margin-top:8px">Demo mode — no real money moves. After sending, use “Simulate customer approval”.</div>{% endif %}
+        {% if t.payment_status == 'stk_pending' %}
+        <form method="post" action="{{ url_for('main.pay_mpesa_simulate', tid=t.id) }}" style="margin-top:8px">
+          <button class="btn btn-ghost btn-block" type="submit">Simulate customer approval (demo)</button>
+        </form>
+        {% endif %}
+        <div class="divider"></div>
+        <form method="post" action="{{ url_for('main.pay_mpesa_code', tid=t.id) }}" class="rowflex">
+          <input class="input num" name="mpesa_code" placeholder="M-Pesa code, e.g. QHX7T2K9P1" style="flex:1">
+          <button class="btn btn-ghost" type="submit">Record code</button>
+        </form>
+      </div>
+      <div id="tab-cash" style="display:none">
+        <form method="post" action="{{ url_for('main.pay_cash', tid=t.id) }}">
+          <p class="muted">Cash received at the office for <b class="num">KES {{ t.amount_due|kes }}</b>.</p>
+          <button class="btn btn-primary btn-block" type="submit">Mark cash received</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="rowflex" style="justify-content:space-between">
+        <span class="muted">Method: <b>{{ t.payment_method|upper if t.payment_method else '—' }}</b></span>
+        {% if t.mpesa_code %}<span class="num">Code: <b>{{ t.mpesa_code }}</b></span>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# transfer receiving (yard) #}
+    {% if t.type == 'transfer' and t.status in ('in_transit','receiving') and current_user.role in ('manager','operator_yard') %}
+    <div class="card card-p" style="margin-top:16px">
+      <h2 style="font-size:22px;margin-bottom:12px">Yard receiving</h2>
+      <div class="muted small" style="margin-bottom:10px">Dispatched net: <b class="num">{{ t.net_tonnes }} t</b> from {{ t.site }} at {{ t.gross_at|tm }}</div>
+      {% if t.status == 'in_transit' %}
+      <form method="post" action="{{ url_for('main.ticket_arrive', tid=t.id) }}" class="rowflex">
+        <div class="field" style="margin:0;flex:1"><label>Arrival gross (kg) — loaded</label>
+          <input class="input num" name="arrival_gross_kg" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+        <button class="btn btn-accent" type="submit" style="margin-top:22px">Record arrival →</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('main.ticket_receive', tid=t.id) }}" class="rowflex">
+        <div class="field" style="margin:0;flex:1"><label>Arrival tare (kg) — after offload</label>
+          <input class="input num" name="arrival_tare_kg" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+        <button class="btn btn-primary" type="submit" style="margin-top:22px">Complete receiving</button>
+      </form>
+      <div class="hint">Arrival gross on record: <b class="num">{{ t.arrival_gross_kg|kgfmt }} kg</b></div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if t.type=='transfer' and t.status=='done' and t.delivered_net_kg %}
+    <div class="card card-p" style="margin-top:16px">
+      <h2 style="font-size:22px;margin-bottom:8px">Transit result</h2>
+      <div class="rowflex" style="justify-content:space-between">
+        <span class="muted">Dispatched <b class="num">{{ t.net_tonnes }} t</b> → delivered <b class="num">{{ (t.delivered_net_kg/1000)|round(2) }} t</b></span>
+      </div>
+      <div class="varbanner {{ 'ok' if (t.transit_variance_kg or 0)|abs <= (t.net_kg or 0)*0.005 else 'bad' }}" style="margin-top:10px">
+        Transit variance: <b class="num">{{ '%+.0f'|format(t.transit_variance_kg or 0) }} kg</b>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card card-p">
+      <h2 style="font-size:22px;margin-bottom:12px">Vehicle record</h2>
+      <div class="camph"><div style="font-size:26px">◉</div><div>Plate capture — Cam-01</div><div class="muted small">Dahua snapshot attaches here when DVR is linked</div></div>
+      <div class="grid g2" style="margin-top:12px">
+        <div><div class="muted small">DRIVER</div><b>{{ t.driver_name or '—' }}</b><div class="muted small num">{{ t.driver_phone or '' }}</div></div>
+        <div><div class="muted small">TRANSPORTER</div><b>{{ t.transporter or '—' }}</b></div>
+      </div>
+      <div class="divider"></div>
+      <div class="muted small">Created by {{ t.created_by }} · {{ t.created_at|dt }} EAT</div>
+      {% if t.forced %}<div style="margin-top:8px"><span class="badge b-amber">Manager override</span> <span class="small muted">{{ t.force_reason }}</span></div>{% endif %}
+    </div>
+
+    <div class="card card-p" style="margin-top:16px">
+      <h2 style="font-size:22px;margin-bottom:12px">Weighment audit trail</h2>
+      <ul class="timeline">
+        {% for a in attempts %}
+        <li><div class="t num">{{ a.at|tm }} · {{ a.kind.replace('_',' ').upper() }}</div>
+          <b class="num">{{ a.weight_kg|kgfmt }} kg</b> — read by {{ a.read_by }}{% if a.confirmed_by %}, confirmed by {{ a.confirmed_by }}{% endif %}</li>
+        {% else %}
+        <li class="muted">No weighments yet.</li>
+        {% endfor %}
+      </ul>
+      {% if current_user.role == 'manager' and t.status != 'voided' and t.status != 'done' %}
+      <div class="divider"></div>
+      <div class="muted small" style="margin-bottom:8px">MANAGER PRIVILEGES ONLY — all overrides are logged</div>
+      <div class="rowflex">
+        <form method="post" action="{{ url_for('main.ticket_void', tid=t.id) }}" onsubmit="return confirm('Void this ticket? This is logged.')">
+          <input type="hidden" name="reason" value="voided from ticket page">
+          <button class="btn btn-ghost btn-sm" type="submit">Void ticket</button>
+        </form>
+        <form method="post" action="{{ url_for('main.ticket_force', tid=t.id) }}" class="rowflex">
+          <input class="input" name="reason" placeholder="Override reason…" required style="min-height:38px;max-width:220px">
+          <button class="btn btn-ghost btn-sm" type="submit">Force override</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card card-p noprint" style="margin-top:16px">
+  <div class="rowflex" style="justify-content:space-between">
+    <a class="btn btn-ghost" href="{{ url_for('main.queue') }}">← Park &amp; return to queue</a>
+    <div class="rowflex">
+      <a class="btn btn-ghost" href="{{ url_for('main.ticket_receipt', tid=t.id) }}">Receipt</a>
+      {% if t.status == 'payment_due' and (t.payment_status == 'paid' or t.forced) %}
+      <form method="post" action="{{ url_for('main.ticket_complete', tid=t.id) }}">
+        <button class="btn btn-primary" type="submit">Confirm &amp; print gate pass →</button>
+      </form>
+      {% elif t.type == 'transfer' and t.status == 'in_transit' %}
+        <span class="muted small">Waiting at yard — receiving happens on the yard screen.</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const tabs = document.getElementById('paytabs');
+if (tabs) tabs.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  tabs.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById('tab-mpesa').style.display = b.dataset.tab === 'mpesa' ? '' : 'none';
+  document.getElementById('tab-cash').style.display = b.dataset.tab === 'cash' ? '' : 'none';
+});
+</script>
+{% endblock %}

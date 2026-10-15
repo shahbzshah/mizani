@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Lorry Queue{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>Live scale deck &amp; yard queue</h1>
+  <div class="sub">{{ 'Quarry weighbridge' if site=='quarry' else 'Yard weighbridge' }} · {{ on_site }} lorries on site now</div></div>
+  <div class="actions rowflex">
+    <a class="btn btn-primary" href="{{ url_for('main.ticket_new') }}">+ New ticket</a>
+  </div>
+</div>
+
+<div class="toolbar">
+  <form method="get" class="rowflex" style="flex:1">
+    <input class="input" name="q" placeholder="Quick find plate, driver, ticket…" value="{{ q }}" style="max-width:340px">
+    <button class="btn btn-ghost btn-sm" type="submit">Find</button>
+    {% if q %}<a class="btn btn-ghost btn-sm" href="{{ url_for('main.queue') }}">Clear</a>{% endif %}
+  </form>
+</div>
+
+<div hx-get="{{ url_for('main.queue') }}?partial=1{% if q %}&q={{ q }}{% endif %}"
+     hx-trigger="every 8s" hx-swap="outerHTML">
+  {% include "_queue_board.html" %}
+</div>
+
+<div class="card card-p" style="margin-top:22px">
+  <div class="rowflex" style="justify-content:space-between">
+    <h2 style="font-size:22px">Today's completed tickets</h2>
+    <span class="badge b-green">{{ completed|length }} cleared</span>
+  </div>
+  <div class="divider"></div>
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead><tr><th>Ticket</th><th>Plate</th><th>Customer / driver</th><th>Material</th>
+    <th class="r">Tare (kg)</th><th class="r">Gross (kg)</th><th class="r">Net (t)</th><th>Payment</th><th></th></tr></thead>
+    <tbody>
+    {% for t in completed %}
+      <tr>
+        <td class="num">{{ t.ticket_no }}</td>
+        <td><span class="plate num" style="font-size:13px;padding:5px 10px">{{ t.plate }}</span></td>
+        <td>{{ t.driver_name }}</td>
+        <td>{{ t.material.name if t.material else '—' }}</td>
+        <td class="r num">{{ t.tare_kg|kgfmt }}</td>
+        <td class="r num">{{ t.gross_kg|kgfmt }}</td>
+        <td class="r num"><b>{{ t.net_tonnes }}</b></td>
+        <td>{% if t.type=='transfer' %}<span class="badge b-slate">Transfer</span>
+            {% elif t.payment_status=='paid' %}<span class="badge b-green">Paid</span>
+            {% else %}<span class="badge b-amber">{{ t.payment_status }}</span>{% endif %}</td>
+        <td><a href="{{ url_for('main.ticket_detail', tid=t.id) }}">Open →</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="muted">Nothing cleared yet today.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

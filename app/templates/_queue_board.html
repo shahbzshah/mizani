@@ -1,0 +1,30 @@
+<div class="qcols" id="qboard">
+  {% for status, title, sub, tickets in cols %}
+  <section class="qcol">
+    <h2>
+      {% if loop.index == 1 %}①{% elif loop.index == 2 %}②{% else %}③{% endif %}
+      {{ title }} <span class="count">{{ tickets|length }} lorries</span>
+    </h2>
+    <div class="colsub">{{ sub }}</div>
+    {% for t in tickets %}
+    <a class="lorry {{ 'alert' if (now_ts() - t.created_at.timestamp()) > 3600 and t.status=='loading' else '' }}" href="{{ url_for('main.ticket_detail', tid=t.id) }}">
+      <div class="lrow">
+        <span class="plate num">{{ t.plate }}</span>
+        {% if t.type == 'transfer' %}<span class="badge b-slate">Transfer</span>
+        {% else %}<span class="badge b-amber">Sale</span>{% endif %}
+      </div>
+      <div class="meta"><b>{{ t.driver_name }}</b> · {{ t.driver_phone or '—' }}</div>
+      <div class="meta" style="margin-top:4px">Material: <b>{{ t.material.name if t.material else '—' }}</b></div>
+      <div class="wgrid">
+        <div class="wcell"><div class="k">Tare</div><div class="v num">{{ t.tare_kg|kgfmt }} <span style="font-size:11px;color:var(--ink-2)">KG</span></div></div>
+        <div class="wcell"><div class="k">Target</div><div class="v num">{{ t.target_tonnes }} <span style="font-size:11px;color:var(--ink-2)">T</span></div></div>
+      </div>
+      <div class="meta" style="margin-top:6px">In yard {{ ((now_ts() - t.created_at.timestamp())/60)|round|int }} min · {{ t.ticket_no }}</div>
+      <button class="openbtn" type="button">Open ticket →</button>
+    </a>
+    {% else %}
+    <div class="muted small" style="padding:12px">No lorries at this stage.</div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</div>

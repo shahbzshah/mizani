@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Materials & pricing{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>Materials &amp; pricing</h1><div class="sub">Per-tonne tariffs · price changes never rewrite old tickets</div></div></div>
+<div class="grid g2">
+  <div class="card card-p" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>Material</th><th class="r">KES / tonne</th><th>Updated</th><th></th></tr></thead>
+    <tbody>{% for m in materials %}
+      <tr>
+        <td><b>{{ m.name }}</b><div class="muted small">{{ m.spec or '' }}</div></td>
+        <td class="r num"><b>{{ m.price_per_tonne|kes }}</b></td>
+        <td class="small muted">{{ m.updated_at|dt }}</td>
+        <td>
+          <form method="post" action="{{ url_for('main.material_price', mid=m.id) }}" class="rowflex">
+            <input class="input num" name="price_per_tonne" type="number" step="0.01" min="0" value="{{ m.price_per_tonne }}" style="min-height:38px;max-width:130px" required>
+            <input class="input" name="reason" placeholder="Reason…" style="min-height:38px;max-width:170px">
+            <button class="btn btn-ghost btn-sm" type="submit">Update</button>
+          </form>
+          {% if m.history %}<details class="small muted" style="margin-top:6px"><summary>Price history ({{ m.history|length }})</summary>
+            {% for h in m.history|reverse %}<div class="num">{{ h.changed_at|dt }}: {{ h.old_price|kes }} → {{ h.new_price|kes }} ({{ h.changed_by }}){% if h.reason %} — {{ h.reason }}{% endif %}</div>{% endfor %}
+          </details>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}</tbody></table>
+  </div>
+  <div>
+    <form class="card card-p" method="post">
+      <h2 style="font-size:22px;margin-bottom:12px">Add material</h2>
+      <div class="field"><label>Name</label><input class="input" name="name" required placeholder="Ballast 20mm (Graded)"></div>
+      <div class="field"><label>Spec</label><input class="input" name="spec" placeholder="Class A Blue Trap Stone"></div>
+      <div class="field"><label>KES per tonne</label><input class="input num" name="price_per_tonne" type="number" step="0.01" min="0" required></div>
+      <button class="btn btn-primary" type="submit">Add material</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

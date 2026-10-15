@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Mizani</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/fonts-local.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mizani.css') }}">
+</head>
+<body>
+<div class="loginwrap">
+  <form class="logincard" method="post">
+    <div class="mark">M</div>
+    <h1>Mizani</h1>
+    <div class="tag">Weigh. Load. Get paid. — JTG Enterprises Limited</div>
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}<div class="flash {{ 'ok' if cat=='ok' else 'err' }}">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    <div class="field"><label>Username</label>
+      <input class="input" name="username" autocomplete="username" required autofocus></div>
+    <div class="field"><label>Password</label>
+      <input class="input" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    <div class="demobox"><b>Demo accounts</b><br>
+      <code>manager / manager123</code> · <code>hr / hr123</code><br>
+      <code>quarry / quarry123</code> · <code>yard / yard123</code></div>
+  </form>
+</div>
+</body>
+</html>
