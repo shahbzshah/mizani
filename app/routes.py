@@ -260,7 +260,7 @@ def _record_gross(t, gross, confirmed_by, via):
         elif (t.variance_kg or 0) < 0:
             msg = (f"Gross locked: net {t.net_tonnes} t — "
                    f"UNDER TARGET, still need +{abs(t.variance_kg):,.0f} kg. "
-                   f"Top up and re-weigh.")
+                   f"Top up and re-weigh — or proceed, it'll be logged.")
         else:
             msg = (f"Gross locked: net {t.net_tonnes} t — "
                    f"OVER TARGET by {t.variance_kg:,.0f} kg.")
@@ -393,12 +393,22 @@ def ticket_complete(tid):
     if t.type == "sale" and t.payment_status != "paid" and not t.forced:
         flash("Payment must be completed (or manager-forced) before clearing.", "err")
         return redirect(url_for("main.ticket_detail", tid=tid))
-    if t.variance_ok is False and not t.forced:
-        flash("Weight is off target — top up and re-weigh, or get a manager override.", "err")
+    off_target = t.variance_ok is False
+    ack = request.form.get("ack_variance") == "1"
+    # The weighbridge never waits for the manager: off-target completion is
+    # allowed with the operator's explicit acknowledgment (logged). The
+    # manager reviews every one of these in their alerts feed.
+    if off_target and not ack and not t.forced and current_user.role != "manager":
+        flash("Ticket is off target — confirm you're proceeding with the actual weight.", "err")
         return redirect(url_for("main.ticket_detail", tid=tid))
     t.status = "done"
     t.completed_at = datetime.now()
-    log(current_user, "ticket_completed", t.ticket_no, "gate pass issued")
+    if off_target:
+        log(current_user, "completed_off_target", t.ticket_no,
+            f"net {t.net_tonnes} t vs target {t.target_tonnes} t "
+            f"(variance {t.variance_kg:+,.0f} kg) — operator acknowledged")
+    else:
+        log(current_user, "ticket_completed", t.ticket_no, "gate pass issued")
     db.session.commit()
     flash(f"{t.ticket_no} cleared — gate pass ready.", "ok")
     return redirect(url_for("main.ticket_receipt", tid=tid))
@@ -546,7 +556,8 @@ def manager():
     k = kpis(site)
     alerts = (AuditLog.query.filter(
         AuditLog.action.in_(("force_complete", "ticket_voided",
-                              "transfer_received", "stk_failed")))
+                              "transfer_received", "stk_failed",
+                              "completed_off_target")))
         .order_by(AuditLog.at.desc()).limit(12).all())
     activity = site_scope(Ticket.query).order_by(
         Ticket.created_at.desc()).limit(25).all()

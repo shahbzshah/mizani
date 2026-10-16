@@ -135,6 +135,7 @@ textarea.input{padding:12px 14px;min-height:90px;resize:vertical}
 .varbanner{border-radius:var(--radius);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:10px;margin-top:14px;border:1px solid}
 .varbanner.ok{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .varbanner.bad{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.varbanner.warn{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 .timeline{list-style:none;margin:0;padding:0}
 .timeline li{position:relative;padding:0 0 16px 26px;font-size:13.5px}
 .timeline li:before{content:"";position:absolute;left:7px;top:6px;width:9px;height:9px;border-radius:50%;background:var(--amber)}

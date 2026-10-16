@@ -249,9 +249,26 @@
     <div class="rowflex">
       <a class="btn btn-ghost" href="{{ url_for('main.ticket_receipt', tid=t.id) }}">Receipt</a>
       {% if t.status == 'payment_due' and (t.payment_status == 'paid' or t.forced) %}
+      {% if t.variance_ok == False and not t.forced and current_user.role != 'manager' %}
+      <div id="clearwrap">
+        <button class="btn btn-primary" type="button" id="clearbtn">Confirm &amp; print gate pass →</button>
+        <form method="post" action="{{ url_for('main.ticket_complete', tid=t.id) }}" id="clearconfirm" style="display:none;min-width:280px">
+          <input type="hidden" name="ack_variance" value="1">
+          <div class="varbanner {{ 'bad' if (t.variance_kg or 0) < 0 else 'warn' }}" style="margin:0 0 10px">
+            Net {{ t.net_tonnes }} T vs target {{ t.target_tonnes }} T ({{ '+' if (t.variance_kg or 0) > 0 else '−' }}{{ (t.variance_kg or 0)|abs|kgfmt }} kg).
+            Proceed with the actual weight — your name goes on the log for the manager.
+          </div>
+          <div class="rowflex">
+            <button class="btn btn-ghost" type="button" id="clearback">← Back</button>
+            <button class="btn btn-accent" type="submit">Proceed — log my name →</button>
+          </div>
+        </form>
+      </div>
+      {% else %}
       <form method="post" action="{{ url_for('main.ticket_complete', tid=t.id) }}">
         <button class="btn btn-primary" type="submit">Confirm &amp; print gate pass →</button>
       </form>
+      {% endif %}
       {% elif t.type == 'transfer' and t.status == 'in_transit' %}
         <span class="muted small">Waiting at yard — receiving happens on the yard screen.</span>
       {% endif %}
@@ -261,6 +278,16 @@
 {% endblock %}
 {% block scripts %}
 <script>
+const clearbtn = document.getElementById('clearbtn');
+if (clearbtn) clearbtn.addEventListener('click', () => {
+  clearbtn.style.display = 'none';
+  document.getElementById('clearconfirm').style.display = '';
+});
+const clearback = document.getElementById('clearback');
+if (clearback) clearback.addEventListener('click', () => {
+  document.getElementById('clearconfirm').style.display = 'none';
+  clearbtn.style.display = '';
+});
 const tabs = document.getElementById('paytabs');
 if (tabs) tabs.addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
