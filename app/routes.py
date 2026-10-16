@@ -13,8 +13,6 @@ from .models import (db, User, Material, PriceHistory, Lorry, Ticket,
 from . import daraja
 
 bp = Blueprint("main", __name__)
-# auth blueprint alias for login_manager
-auth_bp = bp
 
 
 # ---------------- helpers ----------------
