@@ -85,6 +85,15 @@ def tm(v):
 
 
 # ---------------- auth ----------------
+@bp.route("/favicon.ico")
+def favicon():
+    from flask import send_from_directory
+    import os
+    return send_from_directory(
+        os.path.join(bp.root_path, "static"), "favicon.svg",
+        mimetype="image/svg+xml")
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
