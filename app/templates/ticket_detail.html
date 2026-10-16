@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.ticket_no }}{% endblock %}
 {% block body %}
+{% set weigh_mode = get_setting(t.site ~ '.weigh_mode', 'manual') %}
 <div class="pagehead">
   <div>
     <div class="muted small" style="letter-spacing:.08em;font-weight:700">{{ 'DISPATCH TICKET' if t.type=='sale' else 'TRANSFER TICKET' }}</div>
@@ -58,7 +59,6 @@
 {% endif %}
 
 {# gross capture / top-up loop #}
-{% set weigh_mode = get_setting(t.site ~ '.weigh_mode', 'manual') %}
 {% set gross_attempts = t.attempts|selectattr('kind','equalto','gross')|list|length %}
 {% set needs_topup = t.type == 'sale' and t.status == 'payment_due' and t.variance_kg is not none and not t.variance_ok and (t.variance_kg or 0) < 0 %}
 {% set can_weigh = t.status in ('tare_captured','loading','gross_due') or needs_topup %}
@@ -88,6 +88,16 @@
     <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" style="margin-top:12px">
       <button class="btn btn-accent btn-block" type="submit">Lock this weight →</button>
       <div class="hint">Locks the live indicator reading. Rejected if the scale isn't stable.</div>
+      <details style="margin-top:10px">
+        <summary class="small muted" style="cursor:pointer">Reader not working? Type the weight manually</summary>
+        <div class="rowflex" style="margin-top:8px">
+          <div class="field" style="margin:0;flex:1;min-width:180px"><label>Gross (kg) — loaded lorry</label>
+            <input class="input num" name="gross_kg" type="number" step="10" min="1000" style="font-size:20px;font-weight:700"></div>
+          <div class="field" style="margin:0;flex:1;min-width:180px"><label>Confirmed by (window guy)</label>
+            <input class="input" name="gross_confirmed_by" placeholder="Second reader"></div>
+        </div>
+        <div class="hint">Submitted as a manual reading — the ticket notes the reader was down. Weighing never stops.</div>
+      </details>
     </form>
   {% else %}
     <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" class="rowflex">
@@ -170,19 +180,29 @@
 
     {# transfer receiving (yard) #}
     {% if t.type == 'transfer' and t.status in ('in_transit','receiving') and current_user.role in ('manager','operator_yard') %}
+    {% set yard_weigh_mode = get_setting('yard.weigh_mode', 'manual') %}
     <div class="card card-p" style="margin-top:16px">
       <h2 style="font-size:22px;margin-bottom:12px">Yard receiving</h2>
       <div class="muted small" style="margin-bottom:10px">Dispatched net: <b class="num">{{ t.net_tonnes }} t</b> from {{ t.site }} at {{ t.gross_at|tm }}</div>
+      {% if yard_weigh_mode == 'auto' %}
+      <div hx-get="{{ url_for('main.api_scale_live') }}?site=yard" hx-trigger="every 1s" hx-swap="innerHTML" style="margin-bottom:12px">
+        {% include "_scale_live.html" with context %}
+      </div>
+      {% endif %}
       {% if t.status == 'in_transit' %}
-      <form method="post" action="{{ url_for('main.ticket_arrive', tid=t.id) }}" class="rowflex">
+      <form method="post" action="{{ url_for('main.ticket_arrive', tid=t.id) }}" class="rowflex" id="arriveForm">
         <div class="field" style="margin:0;flex:1"><label>Arrival gross (kg) — loaded</label>
-          <input class="input num" name="arrival_gross_kg" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+          <input class="input num" name="arrival_gross_kg" id="arriveGross" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+        <input type="hidden" name="via" id="arriveVia" value="manual">
+        {% if yard_weigh_mode == 'auto' %}<button class="btn btn-ghost" type="button" id="arriveCap" style="margin-top:22px">Capture live</button>{% endif %}
         <button class="btn btn-accent" type="submit" style="margin-top:22px">Record arrival →</button>
       </form>
       {% else %}
-      <form method="post" action="{{ url_for('main.ticket_receive', tid=t.id) }}" class="rowflex">
+      <form method="post" action="{{ url_for('main.ticket_receive', tid=t.id) }}" class="rowflex" id="receiveForm">
         <div class="field" style="margin:0;flex:1"><label>Arrival tare (kg) — after offload</label>
-          <input class="input num" name="arrival_tare_kg" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+          <input class="input num" name="arrival_tare_kg" id="receiveTare" type="number" step="10" required style="font-size:20px;font-weight:700"></div>
+        <input type="hidden" name="via" id="receiveVia" value="manual">
+        {% if yard_weigh_mode == 'auto' %}<button class="btn btn-ghost" type="button" id="receiveCap" style="margin-top:22px">Capture live</button>{% endif %}
         <button class="btn btn-primary" type="submit" style="margin-top:22px">Complete receiving</button>
       </form>
       <div class="hint">Arrival gross on record: <b class="num">{{ t.arrival_gross_kg|kgfmt }} kg</b></div>
@@ -205,7 +225,20 @@
   <div>
     <div class="card card-p">
       <h2 style="font-size:22px;margin-bottom:12px">Vehicle record</h2>
-      <div class="camph"><div style="font-size:26px">◉</div><div>Plate capture — Cam-01</div><div class="muted small">Dahua snapshot attaches here when DVR is linked</div></div>
+      {% if t.plate_image %}
+      <img src="{{ url_for('main.plate_image', fname=t.plate_image) }}" alt="Plate capture {{ t.plate }}"
+           style="width:100%;border-radius:8px;border:1px solid var(--border)">
+      <form method="post" action="{{ url_for('main.capture_plate', tid=t.id) }}" style="margin-top:8px">
+        <button class="btn btn-ghost btn-sm" type="submit">↻ Re-capture plate</button>
+      </form>
+      {% elif dvr_linked and current_user.role in ('manager','operator_quarry','operator_yard') %}
+      <div class="camph"><div style="font-size:26px">◉</div><div>Plate capture — Cam-01</div>
+        <form method="post" action="{{ url_for('main.capture_plate', tid=t.id) }}" style="margin-top:8px">
+          <button class="btn btn-accent btn-sm" type="submit">Capture from DVR</button>
+        </form></div>
+      {% else %}
+      <div class="camph"><div style="font-size:26px">◉</div><div>Plate capture — Cam-01</div><div class="muted small">Dahua snapshot attaches here when DVR is linked (DAHUA_HOST/USER/PASSWORD)</div></div>
+      {% endif %}
       <div class="grid g2" style="margin-top:12px">
         <div><div class="muted small">DRIVER</div><b>{{ t.driver_name or '—' }}</b><div class="muted small num">{{ t.driver_phone or '' }}</div></div>
         <div><div class="muted small">TRANSPORTER</div><b>{{ t.transporter or '—' }}</b></div>
@@ -283,6 +316,21 @@ if (clearbtn) clearbtn.addEventListener('click', () => {
   clearbtn.style.display = 'none';
   document.getElementById('clearconfirm').style.display = '';
 });
+async function captureLive(site, inputId, viaId, msgId) {
+  const msg = msgId ? document.getElementById(msgId) : null;
+  try {
+    const r = await fetch("{{ url_for('main.api_scale_live') }}?site=" + site + "&format=json");
+    const d = await r.json();
+    if (!d.fresh) { alert('No live reading — start scale_reader.py on the office PC.'); return; }
+    if (!d.stable) { alert('Scale not stable yet (' + Math.round(d.kg).toLocaleString() + ' kg) — wait and try again.'); return; }
+    document.getElementById(inputId).value = Math.round(d.kg);
+    document.getElementById(viaId).value = 'auto';
+  } catch (e) { alert('Could not reach the indicator.'); }
+}
+const arriveCap = document.getElementById('arriveCap');
+if (arriveCap) arriveCap.addEventListener('click', () => captureLive('yard', 'arriveGross', 'arriveVia'));
+const receiveCap = document.getElementById('receiveCap');
+if (receiveCap) receiveCap.addEventListener('click', () => captureLive('yard', 'receiveTare', 'receiveVia'));
 const clearback = document.getElementById('clearback');
 if (clearback) clearback.addEventListener('click', () => {
   document.getElementById('clearconfirm').style.display = 'none';

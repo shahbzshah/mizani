@@ -48,7 +48,10 @@ offline on the machine — no internet needed except for M-Pesa and Tailscale.
   for live. On the local server (no public URL) payment status is polled;
   when hosted publicly, switch to Daraja callbacks.
 - **Dahua DVR plate snapshots** (`app/camera.py`): set `DAHUA_HOST/USER/PASSWORD`
-  env vars; snapshots attach to tickets. Unset = placeholder in UI, nothing breaks.
+  (+ optional `DAHUA_CHANNEL`, default 1) env vars. A **Capture from DVR** button
+  on each ticket grabs a still over HTTP digest auth and attaches it to the
+  ticket (stored under `data/plates/`). Unset/unreachable = placeholder in UI
+  with a clear message, nothing breaks.
 - **Tailscale**: install on the server + yard devices + manager's phone;
   everyone opens the same `http://<server-tailscale-ip>:5000`.
 - **Weighbridge auto-read** (dual capture mode): each site runs **Manual
@@ -60,7 +63,11 @@ offline on the machine — no internet needed except for M-Pesa and Tailscale.
   visit add `--raw` to see raw frames and match the parser to the indicator
   model. The ticket page then shows a live readout (1 s poll) with a
   Stable/Settling badge; **Lock this weight** captures it, rejected unless
-  stable. Reader down = page says so, manual entry keeps working.
+  stable. Reader down = page says so, manual entry keeps working. Auto mode
+  covers **tare** (new-ticket form), **gross** (ticket page, with live
+  −X KG TO GO delta), and **yard arrival gross + arrival tare** — each capture
+  is tagged `(auto)` in the timeline so the manager can see which readings
+  came from the indicator.
 - **Top-up loop**: an under-target gross shows a big **TOP-UP NEEDED — ADD
   X KG** banner with the attempt count; operator re-weighs after the loader
   adds. Completing an off-target ticket is blocked unless the manager forces

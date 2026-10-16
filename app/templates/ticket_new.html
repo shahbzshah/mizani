@@ -35,10 +35,20 @@
       <input class="input num" name="target_tonnes" type="number" step="0.5" min="1" value="20" required></div>
   </div>
   <div class="divider"></div>
+  {% if weigh_mode == 'auto' %}
+  <div style="margin-bottom:14px">
+    <div hx-get="{{ url_for('main.api_scale_live') }}?site={{ site }}" hx-trigger="every 1s" hx-swap="innerHTML">
+      {% include "_scale_live.html" with context %}
+    </div>
+    <button type="button" class="btn btn-accent" id="tareCap" style="margin-top:10px">Capture live weight as tare</button>
+    <div class="hint" id="tareCapMsg">Waits for a stable reading, then fills the tare field.</div>
+  </div>
+  {% endif %}
   <div class="g3 grid">
     <div class="field"><label>Tare weight (kg) — empty lorry</label>
       <input class="input num" name="tare_kg" id="tare" type="number" step="10" min="1000" required
              style="font-size:22px;font-weight:700"></div>
+    <input type="hidden" name="tare_via" id="tareVia" value="manual">
     <div class="field"><label>Read by (office)</label><input class="input" name="tare_read_by_display" value="{{ current_user.name }}" disabled></div>
     <div class="field"><label>Confirmed by (window guy)</label><input class="input" name="tare_confirmed_by" placeholder="Second reader"></div>
   </div>
@@ -57,6 +67,20 @@ seg.addEventListener('click', e => {
   seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
   document.getElementById('typeInput').value = b.dataset.v;
+});
+const tareCap = document.getElementById('tareCap');
+if (tareCap) tareCap.addEventListener('click', async () => {
+  const msg = document.getElementById('tareCapMsg');
+  msg.textContent = 'Reading indicator…';
+  try {
+    const r = await fetch("{{ url_for('main.api_scale_live') }}?site={{ site }}&format=json");
+    const d = await r.json();
+    if (!d.fresh) { msg.textContent = 'No live reading — start scale_reader.py on the office PC.'; return; }
+    if (!d.stable) { msg.textContent = 'Scale not stable yet (' + Math.round(d.kg).toLocaleString() + ' kg) — wait and try again.'; return; }
+    document.getElementById('tare').value = Math.round(d.kg);
+    document.getElementById('tareVia').value = 'auto';
+    msg.textContent = 'Captured ' + Math.round(d.kg).toLocaleString() + ' kg from the indicator.';
+  } catch (e) { msg.textContent = 'Could not reach the indicator.'; }
 });
 const plate = document.getElementById('plate');
 let t;

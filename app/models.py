@@ -50,8 +50,11 @@ class User(UserMixin, db.Model):
         if action == "view_ticket" and ticket is not None:
             if self.role == "hr":
                 return False
-            return self.role in ("operator_quarry", "operator_yard") and \
-                (ticket.site == self.site or self.site is None)
+            if self.role == "operator_yard":
+                # yard sees its own tickets plus quarry transfers (it receives them)
+                return ticket.site == "yard" or ticket.type == "transfer"
+            return self.role == "operator_quarry" and \
+                (ticket.site == "quarry" or self.site is None)
         return False
 
 
@@ -96,6 +99,7 @@ class Ticket(db.Model):
     site = db.Column(db.String(16), nullable=False)          # quarry / yard
     type = db.Column(db.String(16), nullable=False)          # sale / transfer
     plate = db.Column(db.String(24), nullable=False, index=True)
+    plate_image = db.Column(db.String(128))  # saved Dahua snapshot filename
     driver_name = db.Column(db.String(120))
     driver_phone = db.Column(db.String(32))
     transporter = db.Column(db.String(120))
@@ -202,6 +206,21 @@ class Setting(db.Model):
 def get_setting(key, default=""):
     s = Setting.query.get(key)
     return s.value if s else default
+
+
+def ensure_schema():
+    """Prototype-grade migrations for the single-file SQLite DB.
+
+    create_all() can't add columns to existing tables, so new columns are
+    added here idempotently. (When we move to Postgres, replace with Alembic.)
+    """
+    from sqlalchemy import text
+    existing = {c[1] for c in
+                db.session.execute(text("PRAGMA table_info(tickets)")).fetchall()}
+    for col, ddl in [("plate_image", "VARCHAR(128)")]:
+        if col not in existing:
+            db.session.execute(text(f"ALTER TABLE tickets ADD COLUMN {col} {ddl}"))
+    db.session.commit()
 
 
 def set_setting(key, value):

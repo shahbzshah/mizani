@@ -1,4 +1,5 @@
 """Mizani routes: auth, queue, tickets, yard, manager, HR."""
+import os
 from datetime import datetime, date, timedelta
 from functools import wraps
 from io import BytesIO
@@ -180,16 +181,21 @@ def api_lorry(plate):
 def ticket_new():
     site = my_site() or "quarry"
     materials = Material.query.filter_by(active=True).order_by(Material.name).all()
+    weigh_mode = get_setting(f"{site}.weigh_mode", "manual")
     if request.method == "POST":
         plate = request.form.get("plate", "").strip().upper()
         if not plate:
             flash("Number plate is required.", "err")
-            return render_template("ticket_new.html", materials=materials, site=site)
+            return render_template("ticket_new.html", materials=materials, site=site,
+                                   weigh_mode=weigh_mode)
         tare = kg(request.form.get("tare_kg"))
         if not tare or tare <= 0:
             flash("Enter a valid tare (empty) weight.", "err")
-            return render_template("ticket_new.html", materials=materials, site=site)
+            return render_template("ticket_new.html", materials=materials, site=site,
+                                   weigh_mode=weigh_mode)
         mat = Material.query.get(int(request.form.get("material_id")))
+        via = "auto" if request.form.get("tare_via") == "auto" else "manual"
+        read_by = f"{current_user.name} ({via})"
         t = Ticket(
             ticket_no=next_ticket_no(), site=site,
             type=request.form.get("type", "sale"),
@@ -198,7 +204,7 @@ def ticket_new():
             transporter=request.form.get("transporter", "").strip(),
             material=mat,
             target_tonnes=kg(request.form.get("target_tonnes")) or 0,
-            tare_kg=tare, tare_read_by=current_user.name,
+            tare_kg=tare, tare_read_by=read_by,
             tare_confirmed_by=request.form.get("tare_confirmed_by", "").strip() or None,
             tare_at=datetime.now(), created_by=current_user.name,
             status="loading",
@@ -206,7 +212,7 @@ def ticket_new():
         db.session.add(t)
         db.session.flush()
         db.session.add(WeighAttempt(ticket_id=t.id, kind="tare", weight_kg=tare,
-                                   read_by=current_user.name,
+                                   read_by=read_by,
                                    confirmed_by=t.tare_confirmed_by))
         # remember lorry
         l = Lorry.query.get(plate)
@@ -224,7 +230,8 @@ def ticket_new():
         flash(f"Ticket {t.ticket_no} created — lorry sent to loading.", "ok")
         return redirect(url_for("main.queue", site=site) if current_user.role == "manager"
                         else url_for("main.queue"))
-    return render_template("ticket_new.html", materials=materials, site=site)
+    return render_template("ticket_new.html", materials=materials, site=site,
+                           weigh_mode=weigh_mode)
 
 
 @bp.route("/tickets/<int:tid>")
@@ -235,7 +242,10 @@ def ticket_detail(tid):
             and current_user.role != "hr":
         abort(403)
     attempts = WeighAttempt.query.filter_by(ticket_id=t.id).order_by(WeighAttempt.at).all()
-    return render_template("ticket_detail.html", t=t, attempts=attempts)
+    from . import camera as camera_mod
+    dvr_linked = bool(camera_mod.cfg.get("host") and camera_mod.cfg.get("user"))
+    return render_template("ticket_detail.html", t=t, attempts=attempts,
+                           dvr_linked=dvr_linked)
 
 
 def _record_gross(t, gross, confirmed_by, via):
@@ -276,14 +286,19 @@ def ticket_gross(tid):
     t = Ticket.query.get_or_404(tid)
     if get_setting(f"{t.site}.weigh_mode", "manual") == "auto":
         live = scale_mod.read_live(t.site)
-        if not live or not live["fresh"]:
-            flash("No live reading — the scale reader isn't running on the office PC.", "err")
-            return redirect(url_for("main.ticket_detail", tid=tid))
-        if not live["stable"]:
-            flash(f"Scale not stable ({live['kg']:,.0f} kg) — wait for it to settle, then lock.", "err")
-            return redirect(url_for("main.ticket_detail", tid=tid))
-        gross = live["kg"]
-        via = "auto"
+        if live and live["fresh"]:
+            if not live["stable"]:
+                flash(f"Scale not stable ({live['kg']:,.0f} kg) — wait for it to settle, then lock.", "err")
+                return redirect(url_for("main.ticket_detail", tid=tid))
+            gross = live["kg"]
+            via = "auto"
+        else:
+            # Reader down: fall back to the manual input — weighing never stops.
+            gross = kg(request.form.get("gross_kg"))
+            via = "manual (reader down)"
+            if not gross:
+                flash("No live reading — the scale reader isn't running. Type the weight manually.", "err")
+                return redirect(url_for("main.ticket_detail", tid=tid))
     else:
         gross = kg(request.form.get("gross_kg"))
         via = "manual"
@@ -309,6 +324,11 @@ def api_scale_live():
         expected = float(request.args.get("expected", 0)) or None
     except (TypeError, ValueError):
         expected = None
+    if request.args.get("format") == "json":
+        return {"kg": live["kg"] if live else None,
+                "stable": bool(live and live["stable"]),
+                "fresh": bool(live and live["fresh"]),
+                "mode": mode}
     return render_template("_scale_live.html", live=live, mode=mode,
                            site=site, expected=expected)
 
@@ -490,8 +510,10 @@ def ticket_arrive(tid):
         return redirect(url_for("main.ticket_detail", tid=tid))
     t.arrival_gross_kg = gross
     t.status = "receiving"
+    via = "auto" if request.form.get("via") == "auto" else "manual"
     db.session.add(WeighAttempt(ticket_id=t.id, kind="arrival_gross",
-                                weight_kg=gross, read_by=current_user.name))
+                                weight_kg=gross,
+                                read_by=f"{current_user.name} ({via})"))
     log(current_user, "transfer_arrived", t.ticket_no, f"arrival gross {gross:,.0f} kg")
     db.session.commit()
     flash("Arrival gross recorded — offload, then capture the empty weight.", "ok")
@@ -513,8 +535,10 @@ def ticket_receive(tid):
     t.received_at = datetime.now()
     t.status = "done"
     t.completed_at = datetime.now()
+    via = "auto" if request.form.get("via") == "auto" else "manual"
     db.session.add(WeighAttempt(ticket_id=t.id, kind="arrival_tare",
-                                weight_kg=tare, read_by=current_user.name))
+                                weight_kg=tare,
+                                read_by=f"{current_user.name} ({via})"))
     flag = "OK" if abs(t.transit_variance_kg) <= (t.net_kg or 0) * 0.005 else "SHORTFALL"
     log(current_user, "transfer_received", t.ticket_no,
         f"delivered {t.delivered_net_kg:,.0f} kg, variance {t.transit_variance_kg:,.0f} kg [{flag}]")
@@ -766,6 +790,36 @@ def hr_staff_reset(uid):
         db.session.commit()
         flash(f"Password reset for {u.username} — tell them the new one.", "ok")
     return redirect(url_for("main.hr", tab="staff"))
+
+
+@bp.route("/tickets/<int:tid>/capture-plate", methods=["POST"])
+@role_required(*OPS)
+def capture_plate(tid):
+    """Grab a still from the Dahua DVR and attach it to the ticket."""
+    from . import camera as camera_mod
+    t = Ticket.query.get_or_404(tid)
+    img = camera_mod.snapshot()
+    if not img:
+        flash("Could not reach the DVR — check DAHUA_HOST/USER/PASSWORD and that it's on the office LAN.", "err")
+        return redirect(url_for("main.ticket_detail", tid=tid))
+    os.makedirs(os.path.join("data", "plates"), exist_ok=True)
+    fname = f"{t.ticket_no}.jpg"
+    with open(os.path.join("data", "plates", fname), "wb") as f:
+        f.write(img)
+    t.plate_image = fname
+    log(current_user, "plate_captured", t.ticket_no, f"{len(img)} bytes from DVR")
+    db.session.commit()
+    flash("Plate snapshot attached.", "ok")
+    return redirect(url_for("main.ticket_detail", tid=tid))
+
+
+@bp.route("/plates/<fname>")
+@login_required
+def plate_image(fname):
+    from flask import send_from_directory
+    if ".." in fname or "/" in fname:
+        abort(404)
+    return send_from_directory(os.path.join(os.getcwd(), "data", "plates"), fname)
 
 
 # ---------------- settings ----------------
