@@ -9,19 +9,22 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/mizani.css') }}">
 <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
 </head>
-<body>
-<header class="topbar">
-  <a href="{{ url_for('main.index') }}" style="text-decoration:none" class="brand">
+<body class="{{ 'no-auth' if not current_user.is_authenticated else '' }}">
+{% if current_user.is_authenticated %}
+<aside class="sidebar" id="sidebar">
+  <a href="{{ url_for('main.index') }}" class="brand">
     <span class="mark">M</span> MIZANI
   </a>
-  {% if current_user.is_authenticated %}
-  <span class="site-pill">
+  <div class="side-site site-pill">
     {% if current_user.role == 'manager' %}Both sites
     {% elif current_user.role == 'hr' %}HR
     {% elif current_user.site == 'quarry' %}Quarry operations
     {% else %}Yard operations{% endif %}
-  </span>
-  <nav class="nav">
+  </div>
+  <nav class="side-nav">
+    {% if current_user.role in ('manager','operator_quarry','operator_yard') %}
+    <div class="nav-group">Operations</div>
+    {% endif %}
     {% if current_user.role in ('manager','operator_quarry') %}
       <a href="{{ url_for('main.queue') }}" class="{{ 'active' if request.endpoint in ('main.queue','main.ticket_new','main.ticket_detail') else '' }}">Lorry Queue</a>
     {% endif %}
@@ -32,34 +35,50 @@
       <a href="{{ url_for('main.history') }}" class="{{ 'active' if request.endpoint=='main.history' else '' }}">History</a>
     {% endif %}
     {% if current_user.role == 'manager' %}
-      <a href="{{ url_for('main.manager') }}" class="{{ 'active' if request.endpoint=='main.manager' else '' }}">Manager Overview</a>
+    <div class="nav-group">Management</div>
+      <a href="{{ url_for('main.manager') }}" class="{{ 'active' if request.endpoint=='main.manager' else '' }}">Overview</a>
       <a href="{{ url_for('main.reports') }}" class="{{ 'active' if request.endpoint=='main.reports' else '' }}">Reports</a>
       <a href="{{ url_for('main.materials') }}" class="{{ 'active' if request.endpoint=='main.materials' else '' }}">Materials</a>
       <a href="{{ url_for('main.users') }}" class="{{ 'active' if request.endpoint=='main.users' else '' }}">Users</a>
       <a href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint=='main.settings' else '' }}">Settings</a>
     {% endif %}
     {% if current_user.role in ('hr','manager') %}
-      <a href="{{ url_for('main.hr') }}" class="{{ 'active' if request.endpoint=='main.hr' else '' }}">HR</a>
+    <div class="nav-group">People</div>
+      <a href="{{ url_for('main.hr') }}" class="{{ 'active' if request.endpoint=='main.hr' else '' }}">HR Terminal</a>
     {% endif %}
   </nav>
-  <span class="syncdot"><i></i> Live</span>
-  <div class="userbox">
-    <div><div style="font-weight:700">{{ current_user.name }}</div>
-    <div class="role">{{ current_user.role_label }}</div></div>
-    <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
-    <a class="icon-btn" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none" href="{{ url_for('main.logout') }}" title="Sign out">⏻</a>
+  <div class="side-foot">
+    <div class="syncdot"><i></i> Live</div>
+    <div class="userbox">
+      <div><div style="font-weight:700">{{ current_user.name }}</div>
+      <div class="role">{{ current_user.role_label }}</div></div>
+    </div>
+    <div class="side-actions">
+      <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
+      <a class="icon-btn" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none" href="{{ url_for('main.logout') }}" title="Sign out">⏻</a>
+    </div>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+{% endif %}
+
+<div class="main">
+  {% if current_user.is_authenticated %}
+  <div class="mobilebar">
+    <button class="icon-btn" id="navToggle" title="Menu">☰</button>
+    <span class="brand" style="font-size:20px"><span class="mark" style="width:28px;height:28px;font-size:16px">M</span> MIZANI</span>
+    <span class="syncdot"><i></i></span>
   </div>
   {% endif %}
-</header>
-
-<main class="wrap">
-  {% with msgs = get_flashed_messages(with_categories=true) %}
-    {% for cat, m in msgs %}
-      <div class="flash {{ 'ok' if cat=='ok' else 'err' }}">{{ m }}</div>
-    {% endfor %}
-  {% endwith %}
-  {% block body %}{% endblock %}
-</main>
+  <main class="wrap">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}
+        <div class="flash {{ 'ok' if cat=='ok' else 'err' }}">{{ m }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block body %}{% endblock %}
+  </main>
+</div>
 
 <script>
 const root = document.documentElement;
@@ -68,6 +87,10 @@ document.getElementById('themeBtn')?.addEventListener('click', () => {
   root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
   localStorage.setItem('mizani-theme', root.dataset.theme);
 });
+const navToggle = document.getElementById('navToggle');
+navToggle?.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+document.getElementById('scrim')?.addEventListener('click', () => document.body.classList.remove('nav-open'));
+document.querySelectorAll('.side-nav a').forEach(a => a.addEventListener('click', () => document.body.classList.remove('nav-open')));
 </script>
 {% block scripts %}{% endblock %}
 </body>
