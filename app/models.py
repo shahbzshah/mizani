@@ -148,6 +148,14 @@ class Ticket(db.Model):
                 self.amount_due = round(self.net_tonnes * self.material.price_per_tonne, 2)
 
     @property
+    def target_kg(self):
+        return round((self.target_tonnes or 0) * 1000, 1)
+
+    @property
+    def expected_gross_kg(self):
+        return round((self.tare_kg or 0) + self.target_kg, 1)
+
+    @property
     def variance_ok(self):
         if self.variance_kg is None or not self.target_tonnes:
             return None

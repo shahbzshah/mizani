@@ -42,7 +42,7 @@
   <div class="wread"><div class="k">2. Gross weight (loaded)</div>
     {% if t.gross_kg %}<div class="v num">{{ t.gross_kg|kgfmt }} <span class="u">KG</span></div>
     <div class="muted small" style="margin-top:6px">Read by {{ t.gross_read_by or '—' }}{% if t.gross_confirmed_by %} · confirmed by {{ t.gross_confirmed_by }}{% endif %}<br>{{ t.gross_at|tm }} EAT</div>
-    {% else %}<div class="v muted">—</div><div class="muted small" style="margin-top:6px">Awaiting return from loader</div>{% endif %}</div>
+    {% else %}<div class="v muted">—</div><div class="muted small" style="margin-top:6px">Awaiting return from loader<br>Needs ≈ <b class="num">{{ t.expected_gross_kg|kgfmt }} kg</b> on the scale (target {{ t.target_tonnes }} T net)</div>{% endif %}</div>
   <div class="wread hero"><div class="k">3. Net commercial payload</div>
     <div class="v num">{{ t.net_tonnes }} <span class="u">TONNES</span></div>
     <div class="muted small" style="margin-top:6px;color:#D8CFBE">{{ t.net_kg|kgfmt if t.net_kg else '—' }} kg net aggregate weight</div></div>
@@ -74,8 +74,15 @@
     <h2 style="font-size:22px">{{ 'Re-weigh after top-up' if needs_topup else 'Capture gross weight' }}</h2>
     <span class="badge {{ 'b-amber' if weigh_mode == 'auto' else 'b-plain' }}">{{ 'Auto indicator' if weigh_mode == 'auto' else 'Manual entry' }}</span>
   </div>
+  {% set expected_gross = t.expected_gross_kg|int %}
+  <div style="background:#FBF8F1;border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:18px;flex-wrap:wrap">
+    <span class="small muted">THIS LORRY NEEDS</span>
+    <span><b class="num" style="font-size:20px">{{ t.target_tonnes }} T</b> <span class="small muted">net</span></span>
+    <span class="small muted" style="align-self:center">→</span>
+    <span><b class="num" style="font-size:20px">{{ expected_gross|kgfmt }} KG</b> <span class="small muted">expected on the scale</span></span>
+  </div>
   {% if weigh_mode == 'auto' %}
-    <div hx-get="{{ url_for('main.api_scale_live') }}?site={{ t.site }}" hx-trigger="every 1s" hx-swap="innerHTML">
+    <div hx-get="{{ url_for('main.api_scale_live') }}?site={{ t.site }}&expected={{ expected_gross }}" hx-trigger="every 1s" hx-swap="innerHTML">
       {% include "_scale_live.html" with context %}
     </div>
     <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" style="margin-top:12px">

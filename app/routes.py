@@ -305,7 +305,12 @@ def api_scale_live():
     site = request.args.get("site", "quarry")
     live = scale_mod.read_live(site)
     mode = get_setting(f"{site}.weigh_mode", "manual")
-    return render_template("_scale_live.html", live=live, mode=mode, site=site)
+    try:
+        expected = float(request.args.get("expected", 0)) or None
+    except (TypeError, ValueError):
+        expected = None
+    return render_template("_scale_live.html", live=live, mode=mode,
+                           site=site, expected=expected)
 
 
 @bp.route("/tickets/<int:tid>/pay-mpesa", methods=["POST"])

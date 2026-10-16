@@ -13,6 +13,14 @@
     {% if live and live.fresh %}{{ live.kg|kgfmt }}{% else %}— — —{% endif %}
     <span style="font-size:15px;color:#D8CFBE">KG</span>
   </div>
+  {% if expected and live and live.fresh %}
+    {% set delta = expected - live.kg %}
+    <div style="margin-top:8px;font-size:15px;font-weight:700;color:{% if delta|abs <= 100 %}#7BD8A0{% else %}var(--amber){% endif %}">
+      {% if delta|abs <= 100 %}✓ AT EXPECTED {{ expected|kgfmt }} KG
+      {% elif delta > 0 %}−{{ delta|kgfmt }} KG TO GO <span style="font-weight:400;color:#D8CFBE">· expected {{ expected|kgfmt }}</span>
+      {% else %}+{{ (-delta)|kgfmt }} KG OVER <span style="font-weight:400;color:#D8CFBE">· expected {{ expected|kgfmt }}</span>{% endif %}
+    </div>
+  {% endif %}
   {% if not live or not live.fresh %}
   <div class="small" style="color:#D8CFBE;margin-top:6px">Start <b>scale_reader.py</b> on the office PC to feed this readout.</div>
   {% endif %}
