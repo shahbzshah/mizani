@@ -129,7 +129,9 @@ textarea.input{padding:12px 14px;min-height:90px;resize:vertical}
 .wread.hero{background:var(--cta);color:#fff;border-color:var(--cta)}
 .wread.hero .k{color:var(--amber)}
 .wread.hero .u{color:#D8CFBE}
-[data-theme="dark"] .wread.hero{color:#F2EDE4}
+[data-theme="dark"] .wread.hero{background:var(--amber-soft);border-color:#5A4A2E;color:#F2EDE4}
+.scalepanel{background:var(--cta);color:#fff;border-radius:8px;padding:16px}
+[data-theme="dark"] .scalepanel{background:#211D18;color:#F2EDE4;border:1px solid var(--border)}
 .varbanner{border-radius:var(--radius);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:10px;margin-top:14px;border:1px solid}
 .varbanner.ok{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .varbanner.bad{background:var(--red-bg);border-color:var(--red);color:var(--red)}
