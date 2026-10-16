@@ -10,15 +10,48 @@
 </div>
 
 {% if tab == 'staff' %}
+<div class="card card-p" style="margin-bottom:16px">
+  <h2 style="font-size:20px;margin-bottom:12px">Add staff</h2>
+  <form method="post" action="{{ url_for('main.hr_staff_new') }}" class="rowflex">
+    <div class="field" style="margin:0;flex:2;min-width:160px"><label>Full name</label>
+      <input class="input" name="name" required placeholder="e.g. Peter Njoroge"></div>
+    <div class="field" style="margin:0;flex:1;min-width:130px"><label>Username</label>
+      <input class="input" name="username" required placeholder="e.g. peter"></div>
+    <div class="field" style="margin:0;flex:1;min-width:150px"><label>Role</label>
+      <select class="input" name="role">
+        <option value="operator_quarry">Quarry Operator</option>
+        <option value="operator_yard">Yard Operator</option>
+        {% if current_user.role == 'manager' %}
+        <option value="hr">HR</option>
+        <option value="manager">Manager</option>
+        {% endif %}
+      </select></div>
+    <div class="field" style="margin:0;flex:1;min-width:140px"><label>Password</label>
+      <input class="input" name="password" type="text" required minlength="6" placeholder="min 6 chars"></div>
+    <button class="btn btn-primary" type="submit" style="margin-top:22px">Add</button>
+  </form>
+  {% if current_user.role == 'hr' %}<div class="hint">HR creates operator accounts — manager and HR accounts are created by the manager.</div>{% endif %}
+</div>
 <div class="card card-p" style="overflow-x:auto">
-<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Site</th><th>Status</th><th>Since</th></tr></thead>
+<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Site</th><th>Status</th><th>Since</th><th>Actions</th></tr></thead>
 <tbody>{% for u in staff %}
 <tr><td><b>{{ u.name }}</b><div class="muted small num">{{ u.username }}</div></td>
 <td>{{ u.role_label }}</td><td>{{ u.site or 'all' }}</td>
 <td>{% if u.active %}<span class="badge b-green">Active</span>{% else %}<span class="badge b-red">Inactive</span>{% endif %}</td>
-<td class="small muted">{{ u.created_at|dt }}</td></tr>
+<td class="small muted">{{ u.created_at|dt }}</td>
+<td><div class="rowflex" style="gap:6px">
+  {% if u.id != current_user.id and (current_user.role == 'manager' or u.role not in ('manager','hr')) %}
+  <form method="post" action="{{ url_for('main.hr_staff_toggle', uid=u.id) }}">
+    <button class="btn btn-ghost btn-sm" type="submit">{{ 'Deactivate' if u.active else 'Reactivate' }}</button>
+  </form>
+  <form method="post" action="{{ url_for('main.hr_staff_reset', uid=u.id) }}" class="rowflex" style="gap:6px">
+    <input class="input" name="new_password" type="text" minlength="6" placeholder="New password" style="width:130px;min-height:36px">
+    <button class="btn btn-ghost btn-sm" type="submit">Reset</button>
+  </form>
+  {% else %}<span class="muted small">—</span>{% endif %}
+</div></td></tr>
 {% endfor %}</tbody></table>
-<div class="hint" style="margin-top:10px">Account changes (create / deactivate) are done by the manager under Users.</div>
+<div class="hint" style="margin-top:10px">Every change is written to the activity log with your name on it.</div>
 </div>
 {% elif tab == 'activity' %}
 <div class="card card-p">

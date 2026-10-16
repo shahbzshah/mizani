@@ -699,6 +699,75 @@ def user_toggle(uid):
     return redirect(url_for("main.users"))
 
 
+def _hr_can_manage(u):
+    """HR manages operators only — manager and HR accounts stay with the
+    manager. Nobody deactivates themselves."""
+    if u.id == current_user.id:
+        return False
+    if current_user.role == "manager":
+        return True
+    return u.role not in ("manager", "hr")
+
+
+@bp.route("/hr/staff/new", methods=["POST"])
+@role_required("hr", "manager")
+def hr_staff_new():
+    username = request.form.get("username", "").strip().lower()
+    name = request.form.get("name", "").strip()
+    role = request.form.get("role", "operator_quarry")
+    password = request.form.get("password", "").strip()
+    if current_user.role == "hr" and role not in ("operator_quarry", "operator_yard"):
+        flash("HR can only create operator accounts — manager and HR accounts are created by the manager.", "err")
+    elif not username or not name:
+        flash("Name and username are required.", "err")
+    elif User.query.filter_by(username=username).first():
+        flash("That username is already taken.", "err")
+    elif len(password) < 6:
+        flash("Password must be at least 6 characters.", "err")
+    elif role not in ROLES:
+        flash("Unknown role.", "err")
+    else:
+        site = "quarry" if role == "operator_quarry" else "yard" if role == "operator_yard" else None
+        u = User(username=username, name=name, role=role, site=site)
+        u.set_password(password)
+        db.session.add(u)
+        log(current_user, "user_created", detail=f"{username} ({u.role_label})")
+        db.session.commit()
+        flash(f"Staff account {username} created.", "ok")
+    return redirect(url_for("main.hr", tab="staff"))
+
+
+@bp.route("/hr/staff/<int:uid>/toggle", methods=["POST"])
+@role_required("hr", "manager")
+def hr_staff_toggle(uid):
+    u = User.query.get_or_404(uid)
+    if not _hr_can_manage(u):
+        flash("You can't change that account — manager and HR accounts are managed by the manager.", "err")
+    else:
+        u.active = not u.active
+        log(current_user, "user_toggled", detail=f"{u.username} → {'active' if u.active else 'inactive'}")
+        db.session.commit()
+        flash(f"{u.username} {'reactivated' if u.active else 'deactivated'}.", "ok")
+    return redirect(url_for("main.hr", tab="staff"))
+
+
+@bp.route("/hr/staff/<int:uid>/reset-password", methods=["POST"])
+@role_required("hr", "manager")
+def hr_staff_reset(uid):
+    u = User.query.get_or_404(uid)
+    pw = request.form.get("new_password", "").strip()
+    if not _hr_can_manage(u):
+        flash("You can't change that account — manager and HR accounts are managed by the manager.", "err")
+    elif len(pw) < 6:
+        flash("Password must be at least 6 characters.", "err")
+    else:
+        u.set_password(pw)
+        log(current_user, "password_reset", detail=f"{u.username}")
+        db.session.commit()
+        flash(f"Password reset for {u.username} — tell them the new one.", "ok")
+    return redirect(url_for("main.hr", tab="staff"))
+
+
 # ---------------- settings ----------------
 @bp.route("/settings", methods=["GET", "POST"])
 @role_required("manager")
