@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>Site settings</h1><div class="sub">Weighbridge capture mode per site — manager only</div></div></div>
+
+<form method="post" class="card card-p" style="max-width:720px">
+  {% for site in ('quarry','yard') %}
+  <h2 style="font-size:20px;margin:6px 0 10px">{{ site|capitalize }} weighbridge</h2>
+  <div class="seg" style="max-width:420px" id="seg-{{ site }}">
+    <button type="button" class="{{ 'on' if cfg[site] == 'manual' else '' }}" data-v="manual">Manual entry</button>
+    <button type="button" class="{{ 'on' if cfg[site] == 'auto' else '' }}" data-v="auto">Auto indicator</button>
+  </div>
+  <input type="hidden" name="{{ site }}_weigh_mode" id="in-{{ site }}" value="{{ cfg[site] }}">
+  <div class="rowflex" style="margin:10px 0 18px">
+    {% set lv = live[site] %}
+    {% if lv and lv.fresh %}
+      <span class="badge {{ 'b-green' if lv.stable else 'b-amber' }}">Reader live · <span class="num">{{ lv.kg|kgfmt }} kg</span> · {{ 'stable' if lv.stable else 'settling' }}</span>
+    {% else %}
+      <span class="badge b-red">No reader signal</span>
+      <span class="hint" style="margin:0">Run <b>scale_reader.py --site {{ site }}</b> on the office PC cabled to the indicator.</span>
+    {% endif %}
+  </div>
+  {% if not loop.last %}<div class="divider"></div>{% endif %}
+  {% endfor %}
+  <button class="btn btn-primary" type="submit">Save settings</button>
+</form>
+
+<div class="card card-p" style="max-width:720px;margin-top:16px">
+  <h2 style="font-size:20px;margin-bottom:8px">Wiring the indicator (auto mode)</h2>
+  <div class="small muted" style="line-height:1.7">
+    1. Cable the weighbridge indicator's RS232 port to the office PC (USB-serial adapter).<br>
+    2. On that PC run: <code>python scale_reader.py --site quarry --port COM3</code> (Windows) or <code>--port /dev/ttyUSB0</code> (Linux).<br>
+    3. First time, add <code>--raw</code> to see the raw frames and match the parser to your indicator model.<br>
+    4. Flip the mode above to <b>Auto indicator</b> — the ticket page then shows a live readout and the operator locks the stable weight.<br>
+    5. No reader running? The page says so and manual entry keeps working — weighing never stops.
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.seg').forEach(seg => {
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById('in-' + seg.id.replace('seg-', '')).value = b.dataset.v;
+  });
+});
+</script>
+{% endblock %}

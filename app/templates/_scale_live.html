@@ -1,0 +1,19 @@
+<div style="background:var(--cta);border-radius:8px;padding:16px;color:#fff">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--amber)">LIVE INDICATOR · {{ site|upper }}</span>
+    {% if live and live.fresh and live.stable %}
+      <span class="badge b-green">Stable</span>
+    {% elif live and live.fresh %}
+      <span class="badge b-amber">Settling…</span>
+    {% else %}
+      <span class="badge b-red">No reader</span>
+    {% endif %}
+  </div>
+  <div class="num" style="font-size:44px;font-weight:700;margin-top:6px">
+    {% if live and live.fresh %}{{ live.kg|kgfmt }}{% else %}— — —{% endif %}
+    <span style="font-size:15px;color:#D8CFBE">KG</span>
+  </div>
+  {% if not live or not live.fresh %}
+  <div class="small" style="color:#D8CFBE;margin-top:6px">Start <b>scale_reader.py</b> on the office PC to feed this readout.</div>
+  {% endif %}
+</div>

@@ -57,17 +57,41 @@
 </div>
 {% endif %}
 
-{# gross capture #}
-{% if t.status in ('tare_captured','loading','gross_due') and current_user.role in ('manager','operator_quarry','operator_yard') %}
+{# gross capture / top-up loop #}
+{% set weigh_mode = get_setting(t.site ~ '.weigh_mode', 'manual') %}
+{% set gross_attempts = t.attempts|selectattr('kind','equalto','gross')|list|length %}
+{% set needs_topup = t.type == 'sale' and t.status == 'payment_due' and t.variance_kg is not none and not t.variance_ok and (t.variance_kg or 0) < 0 %}
+{% set can_weigh = t.status in ('tare_captured','loading','gross_due') or needs_topup %}
+{% if needs_topup %}
+<div class="varbanner bad" style="font-size:17px;padding:18px">
+  ⚠ TOP-UP NEEDED — tell the loader to ADD <b class="num" style="font-size:24px">{{ '%0.0f'|format(-t.variance_kg) }} KG</b>
+  <span class="muted small" style="display:block;margin-top:4px;color:var(--red)">Attempt {{ gross_attempts + 1 }} · re-weigh below when the loader is done</span>
+</div>
+{% endif %}
+{% if can_weigh and current_user.role in ('manager','operator_quarry','operator_yard') %}
 <div class="card card-p" style="margin-top:16px">
-  <h2 style="font-size:22px;margin-bottom:12px">Capture gross weight</h2>
-  <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" class="rowflex">
-    <div class="field" style="margin:0;flex:1;min-width:200px"><label>Gross (kg) — loaded lorry</label>
-      <input class="input num" name="gross_kg" type="number" step="10" min="1000" required style="font-size:22px;font-weight:700"></div>
-    <div class="field" style="margin:0;flex:1;min-width:200px"><label>Confirmed by (window guy)</label>
-      <input class="input" name="gross_confirmed_by" placeholder="Second reader"></div>
-    <button class="btn btn-accent" type="submit" style="margin-top:22px">Lock gross →</button>
-  </form>
+  <div class="rowflex" style="justify-content:space-between;margin-bottom:12px">
+    <h2 style="font-size:22px">{{ 'Re-weigh after top-up' if needs_topup else 'Capture gross weight' }}</h2>
+    <span class="badge {{ 'b-amber' if weigh_mode == 'auto' else 'b-plain' }}">{{ 'Auto indicator' if weigh_mode == 'auto' else 'Manual entry' }}</span>
+  </div>
+  {% if weigh_mode == 'auto' %}
+    <div hx-get="{{ url_for('main.api_scale_live') }}?site={{ t.site }}" hx-trigger="every 1s" hx-swap="innerHTML">
+      {% include "_scale_live.html" with context %}
+    </div>
+    <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" style="margin-top:12px">
+      <button class="btn btn-accent btn-block" type="submit">Lock this weight →</button>
+      <div class="hint">Locks the live indicator reading. Rejected if the scale isn't stable.</div>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('main.ticket_gross', tid=t.id) }}" class="rowflex">
+      <div class="field" style="margin:0;flex:1;min-width:200px"><label>Gross (kg) — loaded lorry</label>
+        <input class="input num" name="gross_kg" type="number" step="10" min="1000" required style="font-size:22px;font-weight:700"></div>
+      <div class="field" style="margin:0;flex:1;min-width:200px"><label>Confirmed by (window guy)</label>
+        <input class="input" name="gross_confirmed_by" placeholder="Second reader"></div>
+      <button class="btn btn-accent" type="submit" style="margin-top:22px">{{ 'Re-weigh →' if needs_topup else 'Lock gross →' }}</button>
+    </form>
+    <div class="hint">Manual mode — switch to <b>Auto indicator</b> under Settings once the reader is wired to the weighbridge.</div>
+  {% endif %}
 </div>
 {% endif %}
 

@@ -51,6 +51,20 @@ offline on the machine — no internet needed except for M-Pesa and Tailscale.
   env vars; snapshots attach to tickets. Unset = placeholder in UI, nothing breaks.
 - **Tailscale**: install on the server + yard devices + manager's phone;
   everyone opens the same `http://<server-tailscale-ip>:5000`.
+- **Weighbridge auto-read** (dual capture mode): each site runs **Manual
+  entry** (default) or **Auto indicator**, toggled by the manager under
+  **Settings** with a live reader-health badge per site. Auto mode: cable the
+  indicator's RS232 to the office PC and run the companion there —
+  `python scale_reader.py --site quarry --port COM3` (Windows) or
+  `--port /dev/ttyUSB0` (Linux); `--simulate` for a no-hardware demo. First
+  visit add `--raw` to see raw frames and match the parser to the indicator
+  model. The ticket page then shows a live readout (1 s poll) with a
+  Stable/Settling badge; **Lock this weight** captures it, rejected unless
+  stable. Reader down = page says so, manual entry keeps working.
+- **Top-up loop**: an under-target gross shows a big **TOP-UP NEEDED — ADD
+  X KG** banner with the attempt count; operator re-weighs after the loader
+  adds. Completing an off-target ticket is blocked unless the manager forces
+  it (audit-logged).
 
 ## Deploy notes (for the real install)
 

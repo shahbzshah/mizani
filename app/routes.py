@@ -9,8 +9,10 @@ from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import func, or_
 
 from .models import (db, User, Material, PriceHistory, Lorry, Ticket,
-                     WeighAttempt, AuditLog, log, ROLES)
+                     WeighAttempt, AuditLog, log, ROLES,
+                     Setting, get_setting, set_setting)
 from . import daraja
+from . import scale as scale_mod
 
 bp = Blueprint("main", __name__)
 
@@ -236,37 +238,74 @@ def ticket_detail(tid):
     return render_template("ticket_detail.html", t=t, attempts=attempts)
 
 
+def _record_gross(t, gross, confirmed_by, via):
+    """Shared gross-capture logic for manual typing and auto indicator read."""
+    t.gross_kg = gross
+    t.gross_read_by = f"{current_user.name} ({via})"
+    t.gross_confirmed_by = confirmed_by
+    t.gross_at = datetime.now()
+    t.compute()
+    db.session.add(WeighAttempt(ticket_id=t.id, kind="gross", weight_kg=gross,
+                                read_by=t.gross_read_by,
+                                confirmed_by=confirmed_by))
+    if t.type == "transfer":
+        if t.status in ("tare_captured", "loading", "gross_due"):
+            t.status = "in_transit"
+        msg = f"Transfer {t.ticket_no} dispatched — net {t.net_tonnes} t. Yard notified."
+    else:
+        if t.status in ("tare_captured", "loading", "gross_due"):
+            t.status = "payment_due"
+        if t.variance_ok:
+            msg = f"Gross locked: net {t.net_tonnes} t — ON TARGET."
+        elif (t.variance_kg or 0) < 0:
+            msg = (f"Gross locked: net {t.net_tonnes} t — "
+                   f"UNDER TARGET, still need +{abs(t.variance_kg):,.0f} kg. "
+                   f"Top up and re-weigh.")
+        else:
+            msg = (f"Gross locked: net {t.net_tonnes} t — "
+                   f"OVER TARGET by {t.variance_kg:,.0f} kg.")
+    log(current_user, "gross_captured", t.ticket_no,
+        f"gross {gross:,.0f} kg ({via}) → net {t.net_kg:,.0f} kg")
+    db.session.commit()
+    flash(msg, "ok" if (t.variance_ok or t.type == "transfer") else "err")
+
+
 @bp.route("/tickets/<int:tid>/gross", methods=["POST"])
 @role_required(*OPS)
 def ticket_gross(tid):
     t = Ticket.query.get_or_404(tid)
-    gross = kg(request.form.get("gross_kg"))
+    if get_setting(f"{t.site}.weigh_mode", "manual") == "auto":
+        live = scale_mod.read_live(t.site)
+        if not live or not live["fresh"]:
+            flash("No live reading — the scale reader isn't running on the office PC.", "err")
+            return redirect(url_for("main.ticket_detail", tid=tid))
+        if not live["stable"]:
+            flash(f"Scale not stable ({live['kg']:,.0f} kg) — wait for it to settle, then lock.", "err")
+            return redirect(url_for("main.ticket_detail", tid=tid))
+        gross = live["kg"]
+        via = "auto"
+    else:
+        gross = kg(request.form.get("gross_kg"))
+        via = "manual"
     if not gross or gross <= 0:
         flash("Enter a valid gross (loaded) weight.", "err")
         return redirect(url_for("main.ticket_detail", tid=tid))
     if t.tare_kg and gross <= t.tare_kg:
         flash("Gross weight must be more than the tare weight.", "err")
         return redirect(url_for("main.ticket_detail", tid=tid))
-    t.gross_kg = gross
-    t.gross_read_by = current_user.name
-    t.gross_confirmed_by = request.form.get("gross_confirmed_by", "").strip() or None
-    t.gross_at = datetime.now()
-    t.compute()
-    db.session.add(WeighAttempt(ticket_id=t.id, kind="gross", weight_kg=gross,
-                                read_by=current_user.name,
-                                confirmed_by=t.gross_confirmed_by))
-    if t.type == "transfer":
-        t.status = "in_transit"
-        msg = f"Transfer {t.ticket_no} dispatched — net {t.net_tonnes} t. Yard notified."
-    else:
-        t.status = "payment_due"
-        msg = (f"Gross locked: net {t.net_tonnes} t "
-               f"({'ON TARGET' if t.variance_ok else 'UNDER TARGET — re-weigh or get manager override'}).")
-    log(current_user, "gross_captured", t.ticket_no,
-        f"gross {gross:,.0f} kg → net {t.net_kg:,.0f} kg")
-    db.session.commit()
-    flash(msg, "ok" if (t.variance_ok or t.type == "transfer") else "err")
+    _record_gross(t, gross,
+                  request.form.get("gross_confirmed_by", "").strip() or None,
+                  via)
     return redirect(url_for("main.ticket_detail", tid=tid))
+
+
+@bp.route("/api/scale/live")
+@login_required
+def api_scale_live():
+    site = request.args.get("site", "quarry")
+    live = scale_mod.read_live(site)
+    mode = get_setting(f"{site}.weigh_mode", "manual")
+    return render_template("_scale_live.html", live=live, mode=mode, site=site)
 
 
 @bp.route("/tickets/<int:tid>/pay-mpesa", methods=["POST"])
@@ -348,6 +387,9 @@ def ticket_complete(tid):
     t = Ticket.query.get_or_404(tid)
     if t.type == "sale" and t.payment_status != "paid" and not t.forced:
         flash("Payment must be completed (or manager-forced) before clearing.", "err")
+        return redirect(url_for("main.ticket_detail", tid=tid))
+    if t.variance_ok is False and not t.forced:
+        flash("Weight is off target — top up and re-weigh, or get a manager override.", "err")
         return redirect(url_for("main.ticket_detail", tid=tid))
     t.status = "done"
     t.completed_at = datetime.now()
@@ -634,6 +676,24 @@ def user_toggle(uid):
         log(current_user, "user_toggled", detail=f"{u.username} → {u.active}")
         db.session.commit()
     return redirect(url_for("main.users"))
+
+
+# ---------------- settings ----------------
+@bp.route("/settings", methods=["GET", "POST"])
+@role_required("manager")
+def settings():
+    if request.method == "POST":
+        for site in ("quarry", "yard"):
+            mode = request.form.get(f"{site}_weigh_mode", "manual")
+            if mode in ("manual", "auto"):
+                set_setting(f"{site}.weigh_mode", mode)
+        log(current_user, "settings_changed", detail="weigh modes updated")
+        db.session.commit()
+        flash("Settings saved.", "ok")
+        return redirect(url_for("main.settings"))
+    cfg = {s: get_setting(f"{s}.weigh_mode", "manual") for s in ("quarry", "yard")}
+    live = {s: scale_mod.read_live(s) for s in ("quarry", "yard")}
+    return render_template("settings.html", cfg=cfg, live=live)
 
 
 # ---------------- HR ----------------

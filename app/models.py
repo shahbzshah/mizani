@@ -183,3 +183,23 @@ def log(actor, action, ticket_no=None, detail=""):
         actor=getattr(actor, "name", str(actor)) if actor else "system",
         role=getattr(actor, "role", "") if actor else "",
         action=action, ticket_no=ticket_no, detail=detail))
+
+
+class Setting(db.Model):
+    __tablename__ = "settings"
+    key = db.Column(db.String(64), primary_key=True)   # e.g. "quarry.weigh_mode"
+    value = db.Column(db.String(64))
+
+
+def get_setting(key, default=""):
+    s = Setting.query.get(key)
+    return s.value if s else default
+
+
+def set_setting(key, value):
+    s = Setting.query.get(key)
+    if not s:
+        s = Setting(key=key, value=value)
+        db.session.add(s)
+    else:
+        s.value = value

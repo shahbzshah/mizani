@@ -39,9 +39,10 @@ def create_app():
     def inject():
         import time
         from flask_login import current_user
+        from .models import get_setting
         return dict(current_user=current_user,
                     daraja_demo=app.config.get("DARAJA_DEMO", True),
-                    now_ts=time.time)
+                    now_ts=time.time, get_setting=get_setting)
 
     with app.app_context():
         db.create_all()

@@ -14,8 +14,8 @@
     <div class="lrow"><span class="plate num">{{ t.plate }}</span><span class="badge b-slate">In transit</span></div>
     <div class="meta"><b>{{ t.driver_name }}</b> · {{ t.material.name if t.material else '' }}</div>
     <div class="wgrid">
+      <div class="wcell"><div class="k">Gross slip</div><div class="v num">{{ t.gross_kg|kgfmt }} <span style="font-size:11px">KG</span></div></div>
       <div class="wcell"><div class="k">Dispatched net</div><div class="v num">{{ t.net_tonnes }} <span style="font-size:11px">T</span></div></div>
-      <div class="wcell"><div class="k">Since</div><div class="v num">{{ t.gross_at|tm }}</div></div>
     </div>
     <button class="openbtn" type="button">Receive lorry →</button>
   </a>

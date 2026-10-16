@@ -36,6 +36,7 @@
       <a href="{{ url_for('main.reports') }}" class="{{ 'active' if request.endpoint=='main.reports' else '' }}">Reports</a>
       <a href="{{ url_for('main.materials') }}" class="{{ 'active' if request.endpoint=='main.materials' else '' }}">Materials</a>
       <a href="{{ url_for('main.users') }}" class="{{ 'active' if request.endpoint=='main.users' else '' }}">Users</a>
+      <a href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint=='main.settings' else '' }}">Settings</a>
     {% endif %}
     {% if current_user.role in ('hr','manager') %}
       <a href="{{ url_for('main.hr') }}" class="{{ 'active' if request.endpoint=='main.hr' else '' }}">HR</a>
