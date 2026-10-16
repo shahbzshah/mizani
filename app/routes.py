@@ -354,7 +354,7 @@ def pay_mpesa_simulate(tid):
     log(current_user, "stk_paid_demo", t.ticket_no, f"code {t.mpesa_code}")
     db.session.commit()
     flash(f"Demo: payment confirmed — {t.mpesa_code}.", "ok")
-    return redirect(url_for("main.ticket_detail", tid=tid))
+    return redirect(url_for("main.ticket_receipt", tid=tid, fresh=1))
 
 
 @bp.route("/tickets/<int:tid>/pay-mpesa-code", methods=["POST"])
@@ -371,7 +371,7 @@ def pay_mpesa_code(tid):
     log(current_user, "mpesa_code_manual", t.ticket_no, f"code {code}")
     db.session.commit()
     flash("Payment recorded.", "ok")
-    return redirect(url_for("main.ticket_detail", tid=tid))
+    return redirect(url_for("main.ticket_receipt", tid=tid, fresh=1))
 
 
 @bp.route("/tickets/<int:tid>/pay-cash", methods=["POST"])
@@ -383,7 +383,7 @@ def pay_cash(tid):
     log(current_user, "cash_paid", t.ticket_no, f"KES {t.amount_due:,.2f}")
     db.session.commit()
     flash("Cash payment recorded.", "ok")
-    return redirect(url_for("main.ticket_detail", tid=tid))
+    return redirect(url_for("main.ticket_receipt", tid=tid, fresh=1))
 
 
 @bp.route("/tickets/<int:tid>/complete", methods=["POST"])
@@ -433,7 +433,12 @@ def ticket_force(tid):
 @login_required
 def ticket_receipt(tid):
     t = Ticket.query.get_or_404(tid)
-    return render_template("receipt.html", t=t)
+    clearable = (t.type == "sale" and t.status != "done"
+                 and t.payment_status == "paid"
+                 and (t.variance_ok is not False or t.forced
+                      or current_user.role == "manager"))
+    return render_template("receipt.html", t=t, clearable=clearable,
+                           fresh=request.args.get("fresh"))
 
 
 @bp.route("/history")

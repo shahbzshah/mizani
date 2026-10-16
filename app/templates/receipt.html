@@ -3,9 +3,32 @@
 {% block body %}
 <div class="pagehead noprint"><div><h1>Receipt</h1></div>
 <div class="actions"><button class="btn btn-primary" onclick="window.print()">Print</button>
-<a class="btn btn-ghost" href="{{ url_for('main.ticket_detail', tid=t.id) }}">Back to ticket</a></div></div>
+<a class="btn btn-ghost" href="{{ url_for('main.ticket_detail', tid=t.id) }}">Back to ticket</a>
+<a class="btn btn-ghost" href="{{ url_for('main.queue') }}">Queue</a></div></div>
+
+{% if fresh and t.type == 'sale' and t.payment_status == 'paid' %}
+<div class="card card-p noprint" style="border:2px solid var(--green);margin-bottom:16px;text-align:center">
+  <div style="font-size:20px;font-weight:700;color:var(--green)">✓ Payment received — KES {{ t.amount_due|kes }}</div>
+  <div class="small muted">{{ (t.payment_method or '')|upper }}{% if t.mpesa_code %} · {{ t.mpesa_code }}{% endif %} · hand the receipt to the customer</div>
+</div>
+{% endif %}
+
+{% if clearable %}
+<div class="card card-p noprint" style="margin-bottom:16px;text-align:center">
+  <form method="post" action="{{ url_for('main.ticket_complete', tid=t.id) }}">
+    <button class="btn btn-accent btn-block" type="submit" style="font-size:18px;padding:14px">Clear ticket &amp; release lorry →</button>
+  </form>
+  <div class="hint">This marks the ticket done and issues the gate pass.</div>
+</div>
+{% endif %}
 
 <div class="receipt">
+  <div style="position:relative">
+  {% if t.status == 'done' %}
+  <div style="position:absolute;top:6px;right:6px;border:3px solid var(--green);color:var(--green);font-weight:800;font-size:18px;padding:4px 12px;border-radius:6px;transform:rotate(-8deg)">CLEARED</div>
+  {% elif t.type == 'sale' and t.payment_status == 'paid' %}
+  <div style="position:absolute;top:6px;right:6px;border:3px solid var(--amber);color:var(--amber);font-weight:800;font-size:18px;padding:4px 12px;border-radius:6px;transform:rotate(-8deg)">PAID</div>
+  {% endif %}
   <div style="text-align:center;margin-bottom:16px">
     <div style="font-family:var(--font-display);font-size:26px;font-weight:700">JTG ENTERPRISES LIMITED</div>
     <div style="font-size:12px;color:#555">Kilimambogo, Thika · Weighbridge {{ '01 (Quarry)' if t.site=='quarry' else '02 (Yard)' }}</div>
@@ -26,7 +49,10 @@
     {% endif %}
   </table>
   <div style="margin-top:16px;font-size:12px;color:#555;text-align:center">
-    Served by {{ t.created_by }}<br>Thank you for your business.
+    Served by {{ t.created_by }}<br>
+    {% if t.status == 'done' and t.completed_at %}Cleared {{ t.completed_at|dt }} EAT<br>{% endif %}
+    Thank you for your business.
+  </div>
   </div>
 </div>
 {% endblock %}
