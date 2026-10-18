@@ -52,8 +52,8 @@
 {% if t.net_kg and t.target_tonnes %}
 <div class="varbanner {{ 'ok' if t.variance_ok else 'bad' }}">
   {% if t.variance_ok %}✓ ON TARGET ({{ '%+.0f'|format(t.variance_kg) }} kg / {{ '%+.1f'|format(t.variance_kg / (t.target_tonnes*10)) }}% vs {{ t.target_tonnes }} t target)
-  {% elif t.variance_kg < 0 %}⚠ UNDER TARGET by {{ '%0.0f'|format(-t.variance_kg) }} kg vs {{ t.target_tonnes }} t — send back to loader, re-weigh, or get a manager override
-  {% else %}⚠ OVER TARGET by {{ '%0.0f'|format(t.variance_kg) }} kg vs {{ t.target_tonnes }} t — check axle limits, trim load, or get a manager override{% endif %}
+  {% elif t.variance_kg < 0 %}⚠ UNDER TARGET by {{ '%0.0f'|format(-t.variance_kg) }} kg vs {{ t.target_tonnes }} t — send back to loader and re-weigh, or proceed (your name goes on the log)
+  {% else %}⚠ OVER TARGET by {{ '%0.0f'|format(t.variance_kg) }} kg vs {{ t.target_tonnes }} t — check axle limits, trim load, or proceed (your name goes on the log){% endif %}
   <span style="margin-left:auto" class="badge {{ 'b-green' if t.variance_ok else 'b-red' }}">Tolerance &lt; 1.0%</span>
 </div>
 {% endif %}
