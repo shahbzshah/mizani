@@ -36,7 +36,7 @@ OPS = ("manager", "operator_quarry", "operator_yard")
 
 def next_ticket_no():
     # Derive from the ticket_no prefix itself — immune to created_at tz skew.
-    prefix = "MIZ-" + date.today().strftime("%Y%m%d") + "-"
+    prefix = "JTG-" + date.today().strftime("%Y%m%d") + "-"
     mx = db.session.query(func.max(Ticket.ticket_no)).filter(
         Ticket.ticket_no.like(prefix + "%")).scalar()
     n = int(mx.rsplit("-", 1)[1]) + 1 if mx else 1
@@ -650,7 +650,7 @@ def reports_export():
     log(current_user, "export_excel", detail="ticket export")
     db.session.commit()
     return send_file(bio, as_attachment=True,
-                     download_name=f"mizani-tickets-{date.today()}.xlsx",
+                     download_name=f"jtg-tickets-{date.today()}.xlsx",
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
@@ -700,7 +700,7 @@ def users():
             u = User(username=username, name=request.form.get("name", "").strip(),
                      role=request.form.get("role", "operator_quarry"),
                      site=request.form.get("site") or None)
-            u.set_password(request.form.get("password", "mizani123"))
+            u.set_password(request.form.get("password", "jtg123"))
             db.session.add(u)
             log(current_user, "user_created", detail=f"{username} ({u.role})")
             db.session.commit()

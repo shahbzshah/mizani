@@ -2,16 +2,16 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · Mizani</title>
+<title>Sign in · JTG</title>
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts/fonts-local.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mizani.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/jtg.css') }}">
 </head>
 <body>
 <div class="loginwrap">
   <form class="logincard" method="post">
     <div class="mark">M</div>
-    <h1>Mizani</h1>
+    <h1>JTG</h1>
     <div class="tag">Weigh. Load. Get paid. — JTG Enterprises Limited</div>
     {% with msgs = get_flashed_messages(with_categories=true) %}
       {% for cat, m in msgs %}<div class="flash {{ 'ok' if cat=='ok' else 'err' }}">{{ m }}</div>{% endfor %}

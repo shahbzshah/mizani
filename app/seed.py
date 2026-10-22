@@ -2,14 +2,21 @@
 from datetime import datetime, timedelta
 from .models import db, User, Material, Lorry, Ticket, WeighAttempt, AuditLog, log
 
+# Real JTG price list — from the Kilimambogo sales price board
+# (photo supplied by Megah, 2026-10-22). Prices per tonne, KES.
 MATERIALS = [
-    ("Ballast 20mm (Graded)", "Class A Blue Trap Stone", 1850.00),
-    ("Ballast 14mm Standard", "Graded crushed stone", 1750.00),
-    ("Ballast 10mm Fine", "Graded crushed stone", 1650.00),
-    ("Ballast 6mm Chips", "Graded chips", 1500.00),
-    ("Quarry Dust (0-6mm)", "Crusher dust", 900.00),
-    ("Hardcore Quarry Spall", "Hand-picked spall", 1200.00),
-    ("Building Stone 9x9", "Machine cut", 85.00),  # per piece, demo only
+    ("0-4 MM ROCKSAND", "Rock sand", 1500.00),
+    ("0-6 MM DUST", "Crusher dust", 1100.00),
+    ("0-6 MM DUST-CLEAN", "Cleaned crusher dust", 1350.00),
+    ("6-10 MM 1/4", "Quarter-inch chippings", 1200.00),
+    ("10-14 MM 1/2", "Half-inch ballast", 1200.00),
+    ("10-20 MM", "Ballast", 1500.00),
+    ("10-30 MM MIX", "Mixed ballast", 1300.00),
+    ("14-20 MM", "Ballast", 1800.00),
+    ("20-30 MM 3/4", "Three-quarter ballast", 1400.00),
+    ("10-28MM", "Ballast", 1300.00),
+    ("0-40MM MURRAM", "Graded murram", 850.00),
+    ("0-30MM CRUSHER RUN", "Crusher run / hardcore", 950.00),
 ]
 
 USERS = [
@@ -49,20 +56,20 @@ def seed():
     now = datetime.now()
     demo = [
         # (site, type, plate, driver, phone, material, target_t, tare, gross, status, pay_method, pay_status, mpesa_code, mins_ago)
-        ("quarry", "sale", "KDA 782P", "Joseph Mwangi", "0722411902", "Ballast 20mm (Graded)", 24.0, 8420, None, "loading", None, "unpaid", None, 42),
-        ("quarry", "sale", "KCB 904L", "Hassan Noor", "0733208114", "Ballast 14mm Standard", 20.0, 8150, None, "loading", None, "unpaid", None, 55),
-        ("quarry", "transfer", "KBZ 188F", "Sammy Ndegwa", "0720334455", "Ballast 10mm Fine", 22.0, 8650, 30650, "in_transit", None, "unpaid", None, 70),
-        ("quarry", "sale", "KDG 441X", "James Kariuki", "0712990345", "Quarry Dust (0-6mm)", 28.0, 9200, 37200, "payment_due", "mpesa", "stk_pending", None, 95),
-        ("quarry", "sale", "KCA 118J", "Daniel Kiprop", "0722888777", "Ballast 20mm (Graded)", 24.0, 8200, 32240, "done", "mpesa", "paid", "QHX7T2K9P1", 180),
-        ("quarry", "sale", "KCP 488D", "Brian Wekesa", "0733111222", "Hardcore Quarry Spall", 18.0, 9050, 27550, "done", "cash", "paid", None, 240),
-        ("yard", "sale", "KBX 770U", "George Kamau", "0722444333", "Quarry Dust (0-6mm)", 28.0, 8400, 36520, "done", "mpesa", "paid", "QHX7R8M2N4", 200),
-        ("quarry", "sale", "KDE 319M", "Peter Otieno", "0725773210", "Hardcore Quarry Spall", 18.0, 7890, None, "tare_captured", None, "unpaid", None, 8),
+        ("quarry", "sale", "KDA 782P", "Joseph Mwangi", "0722411902", "14-20 MM", 24.0, 8420, None, "loading", None, "unpaid", None, 42),
+        ("quarry", "sale", "KCB 904L", "Hassan Noor", "0733208114", "10-14 MM 1/2", 20.0, 8150, None, "loading", None, "unpaid", None, 55),
+        ("quarry", "transfer", "KBZ 188F", "Sammy Ndegwa", "0720334455", "6-10 MM 1/4", 22.0, 8650, 30650, "in_transit", None, "unpaid", None, 70),
+        ("quarry", "sale", "KDG 441X", "James Kariuki", "0712990345", "0-6 MM DUST", 28.0, 9200, 37200, "payment_due", "mpesa", "stk_pending", None, 95),
+        ("quarry", "sale", "KCA 118J", "Daniel Kiprop", "0722888777", "14-20 MM", 24.0, 8200, 32240, "done", "mpesa", "paid", "QHX7T2K9P1", 180),
+        ("quarry", "sale", "KCP 488D", "Brian Wekesa", "0733111222", "0-30MM CRUSHER RUN", 18.0, 9050, 27550, "done", "cash", "paid", None, 240),
+        ("yard", "sale", "KBX 770U", "George Kamau", "0722444333", "0-6 MM DUST", 28.0, 8400, 36520, "done", "mpesa", "paid", "QHX7R8M2N4", 200),
+        ("quarry", "sale", "KDE 319M", "Peter Otieno", "0725773210", "0-30MM CRUSHER RUN", 18.0, 7890, None, "tare_captured", None, "unpaid", None, 8),
     ]
     seq = 1
     for (site, typ, plate, driver, phone, mat, target, tare, gross,
          status, paym, pays, mcode, mins) in demo:
         t = Ticket(
-            ticket_no=f"MIZ-{now.strftime('%Y%m%d')}-{seq:03d}",
+            ticket_no=f"JTG-{now.strftime('%Y%m%d')}-{seq:03d}",
             site=site, type=typ, plate=plate, driver_name=driver,
             driver_phone=phone, material=mats[mat], target_tonnes=target,
             tare_kg=tare, tare_read_by="Kiprono Koech", tare_confirmed_by="Peter (window)",

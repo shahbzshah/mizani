@@ -1,4 +1,4 @@
-# Mizani — Quarry Weighbridge Ticketing System
+# JTG — Quarry Weighbridge Ticketing System
 
 Prototype for **JTG Enterprises Limited**: replaces paper weighbridge logs with a
 ticket system spanning the quarry and the sales yard, under one manager.

@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Mizani{% endblock %} · JTG Weighbridge</title>
+<title>{% block title %}JTG{% endblock %} · JTG Weighbridge</title>
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts/fonts-local.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mizani.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/jtg.css') }}">
 <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
 </head>
 <body class="{{ 'no-auth' if not current_user.is_authenticated else '' }}">
 {% if current_user.is_authenticated %}
 <aside class="sidebar" id="sidebar">
   <a href="{{ url_for('main.index') }}" class="brand">
-    <span class="mark">M</span> MIZANI
+    <span class="mark">J</span> JTG
   </a>
   <div class="side-site site-pill">
     {% if current_user.role == 'manager' %}Both sites
@@ -66,7 +66,7 @@
   {% if current_user.is_authenticated %}
   <div class="mobilebar">
     <button class="icon-btn" id="navToggle" title="Menu">☰</button>
-    <span class="brand" style="font-size:20px"><span class="mark" style="width:28px;height:28px;font-size:16px">M</span> MIZANI</span>
+    <span class="brand" style="font-size:20px"><span class="mark" style="width:28px;height:28px;font-size:16px">J</span> JTG</span>
     <span class="syncdot"><i></i></span>
   </div>
   {% endif %}
@@ -82,10 +82,10 @@
 
 <script>
 const root = document.documentElement;
-root.dataset.theme = localStorage.getItem('mizani-theme') || 'light';
+root.dataset.theme = localStorage.getItem('jtg-theme') || 'light';
 document.getElementById('themeBtn')?.addEventListener('click', () => {
   root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
-  localStorage.setItem('mizani-theme', root.dataset.theme);
+  localStorage.setItem('jtg-theme', root.dataset.theme);
 });
 const navToggle = document.getElementById('navToggle');
 navToggle?.addEventListener('click', () => document.body.classList.toggle('nav-open'));
